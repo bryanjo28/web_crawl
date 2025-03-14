@@ -1,18 +1,53 @@
 <!DOCTYPE html>
 <html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }}</title>
-</head>
-<body>
-    <h1>Halo, {{ user }}!</h1>
-    <p>Selamat datang di halaman utama.</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CMS - Tema Biru</title>
+    <link href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+    
+    <!-- jQuery -->
+    <script src="{{ url_for('static', filename='jquery/jquery-3.6.0.min.js') }}"></script>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="d-flex">
+      <nav id="sidebar" class="bg-primary text-white vh-100 p-3">
+        <h3 class="text-center">CMS</h3>
+        <button
+          class="btn btn-light w-100 my-2"
+          onclick="loadPage('dashboard')"
+        >
+          Dashboard
+        </button>
+        <button class="btn btn-light w-100 my-2" onclick="loadPage('sites')">
+          Site
+        </button>
+        <button class="btn btn-light w-100 my-2" onclick="loadPage('rekening')">
+          Rekening
+        </button>
+      </nav>
 
-    <ul>
-        {% for item in ['Home', 'About', 'Contact'] %}
-            <li>{{ item }}</li>
-        {% endfor %}
-    </ul>
-</body>
+      <!-- Main Content -->
+      <div id="main-content" class="container-fluid p-4">
+        <h2>Welcome to CMS</h2>
+        <p>Pilih menu di sebelah kiri untuk melihat konten.</p>
+      </div>
+    </div>
+
+    <script>
+      function loadPage(page) {
+        $.get("/" + page, function (data) {
+          $("#main-content").html(data);
+        });
+      }
+    </script>
+     <!-- Bootstrap JS -->
+     <script src="{{ url_for('static', filename='bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+  </body>
 </html>

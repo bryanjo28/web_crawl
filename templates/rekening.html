@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekening Management</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    
+    <!-- jQuery -->
+    <script src="{{ url_for('static', filename='jquery/jquery-3.6.0.min.js') }}"></script>
+</head>
+<body class="container mt-4">
+    <h2>Rekening Management</h2>
+    
+    <!-- Filter Form -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <label>Flag Blokir:</label>
+            <input type="text" class="form-control">
+        </div>
+        <div class="col-md-3">
+            <label>Bank:</label>
+            <input type="text" class="form-control">
+        </div>
+    </div>
+    
+    <!-- Buttons -->
+    <div class="mb-3">
+        <button class="btn btn-primary">Search</button>
+        <button class="btn btn-success">Add</button>
+        <button class="btn btn-warning">Upload</button>
+        <button class="btn btn-info">Export</button>
+    </div>
+    
+    <!-- Rekening Table -->
+    <table class="table table-bordered">
+        <thead class="table-primary">
+            <tr>
+                <th>Nomor Rekening</th>
+                <th>Bank</th>
+                <th>Situs</th>
+                <th>Tgl Temuan</th>
+                <th>Tgl Blokir</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rekening in rekening_data %}
+            <tr>
+                <td>{{ rekening.nomor_rekening }}</td>
+                <td>{{ rekening.bank }}</td>
+                <td>{{ rekening.situs }}</td>
+                <td>{{ rekening.tgl_temuan }}</td>
+                <td>{{ rekening.tgl_blokir }}</td>
+                <td>
+                    <button class="btn btn-sm btn-warning">✏️</button>
+                    <button class="btn btn-sm btn-danger">🗑️</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- Bootstrap JS -->
+    <script src="{{ url_for('static', filename='bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+</body>
+</html>

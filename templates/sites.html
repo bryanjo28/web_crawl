@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sites Page</title>
+    <link
+      href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}"
+      rel="stylesheet"
+    />
+
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+  </head>
+  <body class="container mt-4">
+    <h2>Sites Management</h2>
+
+    <!-- Filter Form -->
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <label>Tanggal Last Crawling:</label>
+        <input type="date" class="form-control" />
+      </div>
+      <div class="col-md-3">
+        <label>Flag Judul:</label>
+        <input type="text" class="form-control" />
+      </div>
+      <div class="col-md-3">
+        <label>Flag Aktif:</label>
+        <input type="text" class="form-control" />
+      </div>
+      <div class="col-md-3">
+        <label>Flag UID:</label>
+        <input type="text" class="form-control" />
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="mb-3">
+      <button class="btn btn-primary">Search</button>
+      <button class="btn btn-success">Add</button>
+      <button class="btn btn-warning">Upload</button>
+      <button class="btn btn-info">Export</button>
+    </div>
+
+    <!-- Users Table -->
+    <table class="table table-bordered">
+      <thead class="table-primary">
+        <tr>
+          <th>Situs</th>
+          <th>Flag Judul System</th>
+          <th>Flag Judul User</th>
+          <th>Flag Aktif</th>
+          <th>UID</th>
+          <th>Password</th>
+          <th>First Crawling</th>
+          <th>Last Crawling</th>
+          <th>Last Update</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in judols %}
+        <tr>
+          <td>{{ user.situs }}</td>
+          <td>{{ user.flag_judul_system }}</td>
+          <td>{{ user.flag_judul_user }}</td>
+          <td>{{ user.flag_aktif }}</td>
+          <td>{{ user.uid }}</td>
+          <td>{{ user.password }}</td>
+          <td>{{ user.first_crawling }}</td>
+          <td>{{ user.last_crawling }}</td>
+          <td>{{ user.last_update }}</td>
+          <td>
+            <button class="btn btn-sm btn-warning">✏️</button>
+            <button class="btn btn-sm btn-danger">🗑️</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+   <!-- Bootstrap JS -->
+   <script src="{{ url_for('static', filename='bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+  </body>
+</html>
