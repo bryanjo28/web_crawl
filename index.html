@@ -1,53 +1,120 @@
 <!DOCTYPE html>
-<html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CMS - Tema Biru</title>
-    <link href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
-    
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='styles.css') }}"
-    />
-    
-    <!-- jQuery -->
-    <script src="{{ url_for('static', filename='jquery/jquery-3.6.0.min.js') }}"></script>
-  </head>
-  <body>
-    <!-- Sidebar -->
-    <div class="d-flex">
-      <nav id="sidebar" class="bg-primary text-white vh-100 p-3">
-        <h3 class="text-center">CMS</h3>
-        <button
-          class="btn btn-light w-100 my-2"
-          onclick="loadPage('dashboard')"
-        >
-          Dashboard
-        </button>
-        <button class="btn btn-light w-100 my-2" onclick="loadPage('sites')">
-          Site
-        </button>
-        <button class="btn btn-light w-100 my-2" onclick="loadPage('rekening')">
-          Rekening
-        </button>
-      </nav>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tools Crawling</title>
+    <link rel="stylesheet" href="static/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="static/styles.css">
+</head>
+<body>
+<div class="container-fluid">
+    <div class="row min-vh-100">
+        <!-- Sidebar -->
+        <div class="col-md-2 bg-light sidebar py-3 border-end">
+            <h5 class="text-center mb-4"><i class="bi bi-gear"></i> Tools Crawling</h5>
+            <ul class="nav flex-column">
+                <li class="nav-item"><a class="nav-link active" href="#">Site</a></li>
+                <li class="nav-item"><a class="nav-link" href="#">Rekening</a></li>
+                <li class="nav-item"><a class="nav-link" href="#">QRIS</a></li>
+                <li class="nav-item"><a class="nav-link" href="#">Keyword</a></li>
+            </ul>
+        </div>
 
-      <!-- Main Content -->
-      <div id="main-content" class="container-fluid p-4">
-        <h2>Welcome to CMS</h2>
-        <p>Pilih menu di sebelah kiri untuk melihat konten.</p>
-      </div>
+        <!-- Main Content -->
+        <div class="col-md-10 p-4">
+            <h4>Site (Crawling)</h4>
+
+            <form class="row g-2 align-items-end mb-3">
+                <div class="col-md-2">
+                    <label class="form-label">Search</label>
+                    <input type="text" class="form-control" placeholder="slot">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Last Crawling Date</label>
+                    <input type="text" class="form-control" placeholder="3/1/2025 - 3/15/2025">
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">Classification</label>
+                    <select class="form-select">
+                        <option>Y</option>
+                        <option>N</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">Status</label>
+                    <select class="form-select">
+                        <option>Active</option>
+                        <option>Inactive</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">UID</label>
+                    <select class="form-select">
+                        <option>Registered</option>
+                        <option>Unregistered</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex gap-2">
+                    <button type="button" class="btn btn-primary">Search</button>
+                    <button type="button" class="btn btn-success">Add</button>
+                    <button type="button" class="btn btn-warning">Upload</button>
+                    <button type="button" class="btn btn-secondary">Export</button>
+                </div>
+            </form>
+
+            <table class="table table-bordered table-hover text-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>No</th>
+                        <th>URL</th>
+                        <th>Input By</th>
+                        <th>Flag Judul</th>
+                        <th>Status</th>
+                        <th>UID</th>
+                        <th>Password</th>
+                        <th>First Crawling</th>
+                        <th>Last Crawling</th>
+                        <th>Last Update</th>
+                        <th>Crawling Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td><a href="#">https://slotgacor88.co.sg</a></td>
+                        <td>User</td>
+                        <td>Y</td>
+                        <td>Active</td>
+                        <td>Userid01</td>
+                        <td>user1234</td>
+                        <td>3/10/2025</td>
+                        <td>3/15/2025</td>
+                        <td>3/15/2025</td>
+                        <td><span class="badge bg-success">Success</span></td>
+                        <td><button class="btn btn-sm btn-outline-secondary">✎</button></td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td><a href="#">https://BetSlotgg.co.sg</a></td>
+                        <td>System</td>
+                        <td>N</td>
+                        <td>Active</td>
+                        <td>Userid01</td>
+                        <td>user1234</td>
+                        <td>3/14/2025</td>
+                        <td>3/15/2025</td>
+                        <td>3/15/2025</td>
+                        <td><span class="badge bg-danger">Failed</span></td>
+                        <td><button class="btn btn-sm btn-outline-secondary">✎</button></td>
+                    </tr>
+                    <!-- Tambah baris lainnya sesuai kebutuhan -->
+                </tbody>
+            </table>
+        </div>
     </div>
+</div>
 
-    <script>
-      function loadPage(page) {
-        $.get("/" + page, function (data) {
-          $("#main-content").html(data);
-        });
-      }
-    </script>
-     <!-- Bootstrap JS -->
-     <script src="{{ url_for('static', filename='bootstrap/js/bootstrap.bundle.min.js') }}"></script>
-  </body>
+<script src="static/bootstrap/js/bootstrap.bundle.min.js"></script>
+</body>
 </html>
