@@ -1,11 +1,75 @@
-.sidebar .nav-link.active {
-    background-color: #007bff;
-    color: #fff;
-    border-radius: 0.375rem;
+/* Sidebar Style */
+.sidebar {
+    background-color: #f8f9fa;  /* Latar belakang sidebar */
+    height: 100%;
+    transition: all 0.3s ease;  /* Animasi untuk sidebar */
+    overflow: hidden;
+    padding: 15px;
+    width: 250px;  /* Lebar sidebar saat dibuka */
+    position: fixed;  /* Agar sidebar tetap pada posisi tetap */
+    z-index: 100;  /* Menjaga sidebar di atas konten */
 }
-.sidebar .nav-link {
+
+/* Sidebar yang collapsed */
+.sidebar.collapsed {
+    width: 50px;  /* Lebar sidebar yang lebih kecil saat collapsed */
+    padding: 10px;  /* Padding lebih kecil */
+}
+
+/* Sembunyikan teks dan hanya menampilkan ikon saat sidebar collapsed */
+.sidebar.collapsed .nav-link span {
+    display: none;
+}
+
+/* Menyembunyikan teks pada judul dan hanya menampilkan ikon */
+.sidebar.collapsed .sidebar-title {
+    display: none;
+}
+
+/* Konten utama */
+.content {
+    transition: margin-left 0.3s ease;  /* Animasi untuk konten */
+    padding: 20px;
+    margin-left: 250px;  /* Lebar sidebar */
+}
+
+/* Konten yang disesuaikan saat sidebar collapsed */
+.content.collapsed {
+    margin-left: 50px;  /* Konten mengambil ruang lebih kecil saat sidebar collapsed */
+}
+
+/* Nav Link Style */
+.nav-link {
     color: #000;
+    padding: 10px 15px;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    text-decoration: none;
 }
+
+/* Sembunyikan teks, hanya menampilkan ikon */
+.nav-link span {
+    margin-left: 10px;
+}
+
+/* Style untuk tombol yang aktif */
+.nav-link.active {
+    background-color: #007bff;  /* Warna biru */
+    color: white;
+}
+
+/* Tombol untuk toggle sidebar */
+#toggleSidebarBtn {
+    color: #007bff;
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+    margin-bottom: 20px;
+    font-size: 20px;
+}
+
+/* Menambahkan padding untuk tabel dan memastikan kolom rapi */
 .table th, .table td {
     vertical-align: middle;
     font-size: 0.9rem;
