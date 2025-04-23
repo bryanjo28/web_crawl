@@ -12,7 +12,7 @@
 
 /* Sidebar yang collapsed */
 .sidebar.collapsed {
-    width: 50px;  /* Lebar sidebar yang lebih kecil saat collapsed */
+    width: 60px;  /* Lebar sidebar yang lebih kecil saat collapsed */
     padding: 10px;  /* Padding lebih kecil */
 }
 
