@@ -1,19 +1,26 @@
 /* Sidebar Style */
 .sidebar {
-    background-color: #f8f9fa;  /* Latar belakang sidebar */
+    background-color: #f8f9fa;
+    /* Latar belakang sidebar */
     height: 100%;
-    transition: all 0.3s ease;  /* Animasi untuk sidebar */
+    transition: all 0.3s ease;
+    /* Animasi untuk sidebar */
     overflow: hidden;
     padding: 15px;
-    width: 250px;  /* Lebar sidebar saat dibuka */
-    position: fixed;  /* Agar sidebar tetap pada posisi tetap */
-    z-index: 100;  /* Menjaga sidebar di atas konten */
+    width: 250px;
+    /* Lebar sidebar saat dibuka */
+    position: fixed;
+    /* Agar sidebar tetap pada posisi tetap */
+    z-index: 100;
+    /* Menjaga sidebar di atas konten */
 }
 
 /* Sidebar yang collapsed */
 .sidebar.collapsed {
-    width: 60px;  /* Lebar sidebar yang lebih kecil saat collapsed */
-    padding: 10px;  /* Padding lebih kecil */
+    width: 60px;
+    /* Lebar sidebar yang lebih kecil saat collapsed */
+    padding: 10px;
+    /* Padding lebih kecil */
 }
 
 /* Sembunyikan teks dan hanya menampilkan ikon saat sidebar collapsed */
@@ -28,14 +35,17 @@
 
 /* Konten utama */
 .content {
-    transition: margin-left 0.3s ease;  /* Animasi untuk konten */
+    transition: margin-left 0.3s ease;
+    /* Animasi untuk konten */
     padding: 20px;
-    margin-left: 250px;  /* Lebar sidebar */
+    margin-left: 250px;
+    /* Lebar sidebar */
 }
 
 /* Konten yang disesuaikan saat sidebar collapsed */
 .content.collapsed {
-    margin-left: 50px;  /* Konten mengambil ruang lebih kecil saat sidebar collapsed */
+    margin-left: 50px;
+    /* Konten mengambil ruang lebih kecil saat sidebar collapsed */
 }
 
 /* Nav Link Style */
@@ -55,7 +65,8 @@
 
 /* Style untuk tombol yang aktif */
 .nav-link.active {
-    background-color: #007bff;  /* Warna biru */
+    background-color: #007bff;
+    /* Warna biru */
     color: white;
 }
 
@@ -70,7 +81,19 @@
 }
 
 /* Menambahkan padding untuk tabel dan memastikan kolom rapi */
-.table th, .table td {
+.table th{
     vertical-align: middle;
     font-size: 0.9rem;
+    background-color: #007bff;
+    color: white;
+}
+
+.table td {
+    vertical-align: middle;
+    font-size: 0.9rem;
+}
+
+.formatUpload {
+    color: gray;
+    font-style: italic;
 }

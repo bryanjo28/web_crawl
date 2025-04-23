@@ -29,5 +29,72 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     })
     .catch(error => console.log('Error loading the navbar:', error));
-	
+
+  const uploadModal = new bootstrap.Modal(document.getElementById('uploadUrl'))
+  document.getElementById('openUploadBtn').addEventListener('click', () => uploadModal.show());
+
+   // Submit button inside Upload URL modal
+   document.getElementById("submitUrl").addEventListener("click", function () {
+    const isSuccess = Math.random() > 0.5; // Simulate success/failure
+    setTimeout(function () {
+      uploadModal.hide();
+      showAlert(isSuccess, "upload");
+    }, 1000);
+  });
+
+  // Helper function to display alert messages based on the action
+  function showAlert(success, action) {
+    const ok = document.getElementById("successAlert");
+    const no = document.getElementById("errorAlert");
+
+    // Set the success/error message and corresponding visibility based on action
+    if (action === "add") {
+      if (success) {
+        document.getElementById("successMessage").textContent = "Add New URL Success";
+      } else {
+        document.getElementById("errorMessage").textContent = "Failed to Add URL";
+      }
+    } else if (action === "upload") {
+      if (success) {
+        document.getElementById("successMessage").textContent = "Upload URL Success";
+      } else {
+        document.getElementById("errorMessage").textContent = "Failed to Upload URL";
+      }
+    } else if (action === "edit") {
+      if (success) {
+        document.getElementById("successMessage").textContent = "Edit URL Success";
+      } else {
+        document.getElementById("errorMessage").textContent = "Failed to Edit URL";
+      }
+    } else if (action === "delete") {
+      if (success) {
+        document.getElementById("successMessage").textContent = "Delete URL Success";
+      } else {
+        document.getElementById("errorMessage").textContent = "Failed to Delete URL";
+      }
+    }
+
+    // Display the corresponding alert
+    if (success) {
+      ok.style.display = 'block';
+      no.style.display = 'none';
+    } else {
+      no.style.display = 'block';
+      ok.style.display = 'none';
+    }
+
+    // Hide the alert after 3 seconds
+    setTimeout(() => {
+      ok.style.display = 'none';
+      no.style.display = 'none';
+    }, 2000);
+  }
+  
+  // flatpickr init (jika perlu)
+  flatpickr("#date-blocked", {
+    mode: "range",
+    dateFormat: "m/d/Y",
+  });
+
+
 });

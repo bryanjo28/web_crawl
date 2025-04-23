@@ -39,8 +39,6 @@ document.addEventListener('DOMContentLoaded', function () {
   // 2) Tombol untuk membuka masing‑masing modal
   document.getElementById('openAddBtn').addEventListener('click',    () => addModal.show());
   document.getElementById('openUploadBtn').addEventListener('click', () => uploadModal.show());
-  document.getElementById('editUrlButton').addEventListener('click', () => editModal.show());
-  document.getElementById('deleteUrlButton').addEventListener('click', () => deleteModal.show());
 
   // Save button inside Add URL modal
   document.getElementById("saveButton").addEventListener("click", function () {
@@ -65,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const isSuccess = Math.random() > 0.5; // Simulate success/failure
     setTimeout(function () {
       editModal.hide();
-      showAlert(isSuccess, "edit");
+      showAlert(true, "edit");
     }, 1000);
   });
 
@@ -74,18 +72,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const isSuccess = Math.random() > 0.5; // Simulate success/failure
     setTimeout(function () {
       deleteModal.hide();
-      showAlert(isSuccess, "delete");
+      showAlert(true, "delete");
     }, 1000);
-  });
-
-
-  // Fungsi untuk menanggapi tombol konfirmasi delete
-  document.getElementById("confirmDelete").addEventListener("click", function () {
-    const isSuccess = Math.random() > 0.5;
-      setTimeout(function () {
-        deleteModal.hide();
-        showAlert(isSuccess);
-      }, 1000);
   });
 
 
@@ -141,4 +129,144 @@ document.addEventListener('DOMContentLoaded', function () {
     mode: "range",
     dateFormat: "m/d/Y",
   });
+  
+    // Dummy data awal
+    const tableData = [
+      {
+        no: 1,
+        url: 'https://slotgacor88.co.sg',
+        inputBy: 'User',
+        flagJudul: 'Y',
+        status: 'Active',
+        uid: 'Userid01',
+        password: 'user1234',
+        firstCrawling: '3/10/2025',
+        lastCrawling: '3/15/2025',
+        lastUpdate: '3/15/2025',
+        crawlingStatus: 'Success'
+      },
+      {
+        no: 2,
+        url: 'https://BetSlotgg.co.sg',
+        inputBy: 'System',
+        flagJudul: 'N',
+        status: 'Active',
+        uid: 'Userid02',
+        password: 'pass456',
+        firstCrawling: '3/14/2025',
+        lastCrawling: '3/15/2025',
+        lastUpdate: '3/15/2025',
+        crawlingStatus: 'Failed'
+      }
+    ];
+  
+    let selectedRowId = null;
+  
+    function populateTable() {
+      const tbody = document.querySelector("table tbody");
+      tbody.innerHTML = "";
+  
+      tableData.forEach((item) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${item.no}</td>
+          <td><a href="#">${item.url}</a></td>
+          <td>${item.inputBy}</td>
+          <td>${item.flagJudul}</td>
+          <td>${item.status}</td>
+          <td>${item.uid}</td>
+          <td>${item.password}</td>
+          <td>${item.firstCrawling}</td>
+          <td>${item.lastCrawling}</td>
+          <td>${item.lastUpdate}</td>
+          <td><span class="badge ${item.crawlingStatus === 'Success' ? 'bg-success' : 'bg-danger'}">${item.crawlingStatus}</span></td>
+          <td>
+            <button class="btn btn-sm btn-warning edit-btn" data-id="${item.no}">
+              <i class="fa fa-pencil" aria-hidden="true"></i>
+            </button>
+            <button class="btn btn-sm btn-danger delete-btn" data-id="${item.no}">
+              <i class="fa fa-trash" aria-hidden="true"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+  
+      bindActionButtons();
+    }
+  
+    function bindActionButtons() {
+      document.querySelectorAll(".edit-btn").forEach(btn => {
+        btn.addEventListener("click", function () {
+          const id = parseInt(this.dataset.id);
+          const item = tableData.find(d => d.no === id);
+          if (item) {
+            selectedRowId = id;
+            document.getElementById("editUrl").value = item.url;
+            document.getElementById("editClassification").value = item.flagJudul;
+            document.getElementById("editWebStatus").value = item.status;
+            document.getElementById("editUid").value = item.uid;
+            document.getElementById("editPassword").value = item.password;
+  
+            // buka modal
+            const editModalInstance = new bootstrap.Modal(document.getElementById("editUrlModal"));
+            editModalInstance.show();
+          }
+        });
+      });
+  
+      document.querySelectorAll(".delete-btn").forEach(btn => {
+        btn.addEventListener("click", function () {
+          const id = parseInt(this.dataset.id);
+          selectedRowId = id;
+  
+          // buka modal delete
+          const deleteModalInstance = new bootstrap.Modal(document.getElementById("deleteUrlModal"));
+          deleteModalInstance.show();
+        });
+      });
+    }
+  
+    // Ubah data saat Save Edit
+    document.getElementById("saveEditUrl").addEventListener("click", function () {
+      const item = tableData.find(d => d.no === selectedRowId);
+      if (item) {
+        item.url = document.getElementById("editUrl").value;
+        item.flagJudul = document.getElementById("editClassification").value;
+        item.status = document.getElementById("editWebStatus").value;
+        item.uid = document.getElementById("editUid").value;
+        item.password = document.getElementById("editPassword").value;
+        item.lastUpdate = new Date().toLocaleDateString("en-US");
+    
+        // Tutup modal dulu, lalu refresh
+        const modal = bootstrap.Modal.getInstance(document.getElementById("editUrlModal"));
+        modal.hide();
+    
+        setTimeout(() => {
+          populateTable();
+        }, 500);
+      }
+    });
+    
+  
+    // Hapus data saat Confirm Delete
+    document.getElementById("confirmDelete").addEventListener("click", function () {
+      const index = tableData.findIndex(d => d.no === selectedRowId);
+      if (index !== -1) {
+        tableData.splice(index, 1);
+    
+        // Tutup modal dulu, lalu refresh
+        const modal = bootstrap.Modal.getInstance(document.getElementById("deleteUrlModal"));
+        modal.hide();
+    
+        setTimeout(() => {
+          populateTable();
+        }, 500);
+      }
+    });
+    
+  
+    // Jalankan pertama kali
+    populateTable();
+  
 });
