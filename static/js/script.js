@@ -124,6 +124,7 @@ document.addEventListener('DOMContentLoaded', function () {
       no.style.display = 'none';
     }, 2000);
   }
+  
   // flatpickr init (jika perlu)
   flatpickr("#last-crawling", {
     mode: "range",

@@ -81,56 +81,22 @@
             <tr>
               <th>No</th>
               <th>URL</th>
-              <th>Input By</th>
-              <th>Flag Judul</th>
-              <th>Status</th>
-              <th>UID</th>
-              <th>Password</th>
-              <th>First Crawling</th>
-              <th>Last Crawling</th>
-              <th>Last Update</th>
-              <th>Crawling Status</th>
+              <th>Bank</th>
+              <th>No Rek</th>
+              <th>Date Found</th>
+              <th>Date Blocked</th>
+              <th>Status Rekening</th>
+              <th>Directory</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>1</td>
-              <td><a href="#">https://slotgacor88.co.sg</a></td>
-              <td>User</td>
-              <td>Y</td>
-              <td>Active</td>
-              <td>Userid01</td>
-              <td>user1234</td>
-              <td>3/10/2025</td>
-              <td>3/15/2025</td>
-              <td>3/15/2025</td>
-              <td><span class="badge bg-success">Success</span></td>
-              <td><button id="editUrlButton" class="btn btn-sm btn-warning"><i class="fa fa-pencil"
-                    aria-hidden="true"></i></button> <button id="deleteUrlButton" class="btn btn-sm btn-danger"><i
-                    class="fa fa-trash" aria-hidden="true"></i></button></td>
-            </tr>
-            <tr>
-              <td>2</td>
-              <td><a href="#">https://BetSlotgg.co.sg</a></td>
-              <td>System</td>
-              <td>N</td>
-              <td>Active</td>
-              <td>Userid01</td>
-              <td>user1234</td>
-              <td>3/14/2025</td>
-              <td>3/15/2025</td>
-              <td>3/15/2025</td>
-              <td><span class="badge bg-danger">Failed</span></td>
-              <td><button id="editUrlButton" class="btn btn-sm btn-warning"><i class="fa fa-pencil"
-                    aria-hidden="true"></i></button> <button id="deleteUrl" class="btn btn-sm btn-danger"><i
-                    class="fa fa-trash" aria-hidden="true"></i></button></td>
-            </tr>
+            <!-- Data dari JS akan di-render di sini -->
           </tbody>
         </table>
       </div>
 
-      <!-- Modal Upload URL -->
+      <!-- Modal Upload Rekening -->
       <div class="modal fade" id="uploadUrl" tabindex="-1" aria-labelledby="uploadUrlLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
           <div class="modal-content">
@@ -150,6 +116,42 @@
           </div>
         </div>
       </div>
+
+      <!-- Modal Block Rekening -->
+      <div class="modal fade" id="blokRekModal" tabindex="-1" aria-labelledby="blokRekModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="blokRekModalLabel">Block Rekening </h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-2 row">
+                <label for="noRek" class="col-sm-4 col-form-label">No Rek</label>
+                <div class="col-sm-6 pt-1">
+                  <input type="text" id="noRek" class="form-control form-control-sm" placeholder="123532" disabled>
+                </div>
+              </div>
+              <div class="mb-2 row">
+                <label for="dateBlock" class="col-sm-4 col-form-label">Date Blocked</label>
+                <div class="col-sm-6 pt-1">
+                  <div class="input-group ">
+                    <input type="text" id="dateBlock" class="form-control form-control-sm"
+                      placeholder="3/1/2025 - 3/15/2025" disabled>
+                    <span class="input-group-text"><i class="fa fa-calendar" aria-hidden="true"></i></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="button" id="blockButton" class="btn btn-danger">Block</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
     </div>
   </div>
 

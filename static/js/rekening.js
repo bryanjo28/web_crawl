@@ -33,8 +33,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const uploadModal = new bootstrap.Modal(document.getElementById('uploadUrl'))
   document.getElementById('openUploadBtn').addEventListener('click', () => uploadModal.show());
 
-   // Submit button inside Upload URL modal
-   document.getElementById("submitUrl").addEventListener("click", function () {
+  // Submit button inside Upload URL modal
+  document.getElementById("submitUrl").addEventListener("click", function () {
     const isSuccess = Math.random() > 0.5; // Simulate success/failure
     setTimeout(function () {
       uploadModal.hide();
@@ -73,6 +73,10 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("errorMessage").textContent = "Failed to Delete URL";
       }
     }
+    else if (action === "blocked") {
+      document.getElementById("successMessage").textContent = "Rekening berhasil diblokir";
+    }
+    
 
     // Display the corresponding alert
     if (success) {
@@ -89,12 +93,109 @@ document.addEventListener("DOMContentLoaded", function () {
       no.style.display = 'none';
     }, 2000);
   }
-  
+
   // flatpickr init (jika perlu)
   flatpickr("#date-blocked", {
     mode: "range",
     dateFormat: "m/d/Y",
   });
 
+  // Dummy data awal
+  const tableData = [
+    {
+      no: 1,
+      url: 'https://slotgacor88.co.sg',
+      bank: 'BCA',
+      noRek: '1234567',
+      dateFound: '3/15/2025',
+      dateBlocked: '3/16/2025',
+      statusRekening: 'Blocked',
+      directory: 'C:\User\sdasd',
+    },
+    {
+      no: 2,
+      url: 'https://slotgacor88.co.sg',
+      bank: 'BCA',
+      noRek: '563475',
+      dateFound: '3/15/2025',
+      dateBlocked: '3/16/2025',
+      statusRekening: 'Active',
+      directory: 'C:\User\sdasd',
+    }
+  ];
+
+  let selectedRowId = null;
+
+  function populateTable() {
+    const tbody = document.querySelector("table tbody");
+    tbody.innerHTML = "";
+
+    tableData.forEach((item) => {
+      const row = document.createElement("tr");
+      
+    // Check if the statusRekening is 'Blokir'
+    const isBlocked = item.statusRekening === 'Blocked';
+
+      row.innerHTML = `
+        <td>${item.no}</td>
+        <td><a href="#">${item.url}</a></td>
+        <td>${item.bank}</td>
+        <td>${item.noRek}</td>
+        <td>${item.dateFound}</td>
+        <td>${item.dateBlocked}</td>
+        <td>${item.statusRekening}</td>
+        <td>${item.directory}</td>
+        <td>
+        <!-- Conditionally hide the delete button if the status is 'Blokir' -->
+        ${!isBlocked ? 
+          `<button class="btn btn-sm btn-danger delete-btn" data-id="${item.no}">
+            <i class="fa fa-ban" aria-hidden="true"></i>
+          </button>` : ''}
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+    bindActionButtons();
+  }
+
+  function bindActionButtons() {
+    document.querySelectorAll(".delete-btn").forEach(btn => {
+      btn.addEventListener("click", function () {
+        const id = parseInt(this.dataset.id);
+        const item = tableData.find(d => d.no === id);
+        if (item) {
+          selectedRowId = id;
+          document.getElementById("noRek").value = item.noRek;
+          document.getElementById("dateBlock").value = item.dateBlocked;
+
+          // buka modal
+          const blockModalInstance = new bootstrap.Modal(document.getElementById("blokRekModal"));
+          blockModalInstance.show();
+        }
+      });
+    });
+
+  }
+
+  populateTable()
+
+
+  // Ubah data saat Save Edit
+  document.getElementById("blockButton").addEventListener("click", function () {
+    const item = tableData.find(d => d.no === selectedRowId);
+    if (item) {
+      item.statusRekening = "Blocked"; // hanya ubah status
+      item.dateBlocked = new Date().toLocaleDateString("en-US"); // optional: update tanggal blokir
+  
+      const modal = bootstrap.Modal.getInstance(document.getElementById("blokRekModal"));
+      modal.hide();
+  
+      setTimeout(() => {
+        populateTable();
+        showAlert(true, "blocked");
+      }, 500);
+    }
+  });
+  
 
 });
