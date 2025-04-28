@@ -97,3 +97,33 @@
     color: gray;
     font-style: italic;
 }
+
+.table td a {
+    display: inline-block;
+    max-width: 300px; /* atau ukuran sesuai kebutuhan */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  /* Gaya untuk spinner */
+#exportLoading {
+    display: none;  /* Awalnya sembunyikan spinner */
+    border: 4px solid #f3f3f3; /* Warna background spinner */
+    border-top: 4px solid #3498db; /* Warna bagian atas spinner */
+    border-radius: 50%;  /* Membuat spinner berbentuk lingkaran */
+    width: 24px;  /* Ukuran spinner */
+    height: 24px;  /* Ukuran spinner */
+    animation: spin 1.5s linear infinite; /* Animasi berputar */
+    margin-left: 8px; /* Memberikan jarak horizontal */
+    margin-top: 2px;  /* Mengatur jarak vertikal untuk menurunkan spinner */
+  }
+  
+  
+  /* Animasi berputar */
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
