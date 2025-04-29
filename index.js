@@ -11,13 +11,13 @@ const XLSX = require('xlsx');
 
 // Koneksi ke MongoDB lokal (tanpa username/password)
 mongoose.connect('mongodb://localhost:27017/JudolBCA', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
   .then(() => console.log('✅ Terhubung ke MongoDB'))
   .catch((err) => console.error('❌ Gagal terhubung ke MongoDB', err));
 
-  app.use(express.json({ limit: '10mb' }));   // ⬅️ Penting!
+app.use(express.json({ limit: '10mb' }));   // ⬅️ Penting!
 
 
 // Static file middleware
@@ -120,6 +120,13 @@ app.delete('/api/urls/:id', async (req, res) => {
   }
 });
 
+// Fungsi untuk mengonversi Excel serial date ke format JavaScript Date
+// function convertExcelSerialDate(serialDate) {
+//   if (!serialDate || serialDate === "null") return null; // Jika kosong atau "null" sebagai string, set ke null
+//   const date = new Date((serialDate - 25569) * 86400 * 1000); // Konversi Excel serial date
+//   return isNaN(date.getTime()) ? null : date; // Jika tidak valid, kembalikan null
+// }
+
 app.post('/api/urls/bulk', async (req, res) => {
   try {
     const { data } = req.body;
@@ -128,39 +135,55 @@ app.post('/api/urls/bulk', async (req, res) => {
       return res.status(400).json({ message: "Data tidak valid" });
     }
 
-    // Ambil semua URL dari data
-    const urlList = data.map(item => item.url);
+    // Normalize and validate the data
+    const normalizedData = data.map(item => {
+      const normalizedItem = {
+        url: (item.url || "").trim(),
+        inputBy: (item.inputBy || "").trim(),
+        flagSystem: item.flagSystem === true || item.flagSystem === false ? item.flagSystem : null,
+        flagUser: item.flagUser === true || item.flagUser === false ? item.flagUser : null,
+        webStatus: (item.webStatus || "").trim(),
+        uid: (item.uid || "").trim(),
+        password: (item.password || "").trim(),
+        firstCrawl: item.firstCrawl ? new Date(item.firstCrawl) : null,
+        lastCrawl: item.lastCrawl ? new Date(item.lastCrawl) : null,
+        lastUpdate: item.lastUpdate ? new Date(item.lastUpdate) : null,
+        crawlStatus: item.crawlStatus === true || item.crawlStatus === false ? item.crawlStatus : null
+      };
 
-    // Cek ke database URL yang sudah ada
-    const existingUrls = await UrlModel.find({ url: { $in: urlList } }).select('url');
+      console.log("Normalized Item:", normalizedItem); // Log the normalized item
+      return normalizedItem;
+    });
 
-    const existingUrlSet = new Set(existingUrls.map(item => item.url));
+    // Extract all URLs from the normalized data
+    const urls = normalizedData.map(item => item.url);
 
-    // Filter hanya URL yang belum ada
-    const dataToInsert = data.filter(item => !existingUrlSet.has(item.url));
+    // Check for duplicate URLs in the database
+    const existingUrls = await UrlModel.find({ url: { $in: urls } }).select('url');
+    const existingUrlsSet = new Set(existingUrls.map(item => item.url));
 
-    if (dataToInsert.length === 0) {
-      return res.status(409).json({ 
-        message: "Semua URL sudah ada di database.", 
-        duplicatedUrls: [...existingUrlSet] 
+    // Find duplicate URLs in the uploaded data
+    const duplicateUrls = urls.filter(url => existingUrlsSet.has(url));
+
+    if (duplicateUrls.length > 0) {
+      return res.status(400).json({
+        message: `These URLs already exist in the database: ${duplicateUrls.join(", ")}`
       });
     }
 
-    // Insert URL baru
-    const inserted = await UrlModel.insertMany(dataToInsert);
+    // Insert unique URLs into the database
+    await UrlModel.insertMany(normalizedData);
 
-    res.status(201).json({ 
+    res.status(201).json({
       message: "Upload berhasil sebagian/bulk",
-      insertedCount: inserted.length,
-      skippedDuplicates: existingUrls.length,
-      duplicatedUrls: [...existingUrlSet]
+      insertedCount: normalizedData.length, // Number of successfully inserted records
     });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ 
-      message: "Gagal upload data", 
-      error: err.message 
+    res.status(500).json({
+      message: "Gagal upload data",
+      error: err.message
     });
   }
 });
@@ -189,7 +212,7 @@ app.get('/api/url/export', async (req, res) => {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'CrawlData');
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
-    res.setHeader('Content-Disposition', `attachment; filename="url_data_export_${new Date().toISOString().slice(0,10)}.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="url_data_export_${new Date().toISOString().slice(0, 10)}.xlsx"`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.send(buffer);
 
@@ -282,9 +305,9 @@ app.post('/api/rekening/bulk', async (req, res) => {
 
   } catch (error) {
     console.error("Error saat upload rekening:", error);
-    res.status(500).json({ 
-      message: "Gagal upload data rekening", 
-      error: error.message 
+    res.status(500).json({
+      message: "Gagal upload data rekening",
+      error: error.message
     });
   }
 });
@@ -362,12 +385,7 @@ app.put('/api/qris/:id/block', async (req, res) => {
   }
 });
 
-// Fungsi untuk mengonversi Excel serial date ke format JavaScript Date
-function convertExcelSerialDate(serialDate) {
-  if (!serialDate || serialDate === "null") return null; // Jika kosong atau "null" sebagai string, set ke null
-  const date = new Date((serialDate - 25569) * 86400 * 1000); // Konversi Excel serial date
-  return isNaN(date.getTime()) ? null : date; // Jika tidak valid, kembalikan null
-}
+
 
 app.post('/api/qris/upload', async (req, res) => {
   try {
@@ -381,13 +399,14 @@ app.post('/api/qris/upload', async (req, res) => {
     const normalizedData = data.map(item => ({
       url: (item.url || "").trim(),
       bank: (item.bank || "").trim(),
-      NoQRIS: (String(item.NoQRIS) || "").trim(),
-      DateFound: convertExcelSerialDate(item.DateFound),
-      DateBlocked: convertExcelSerialDate(item.DateBlocked),
+      NoQRIS: item.NoQRIS,
+      DateFound: item.DateFound  ? new Date(item.DateFound) : null,
+      DateBlocked: item.DateBlocked  ? new Date(item.DateBlocked) : null,
       StatusQRIS: item.StatusQRIS === "Blocked" ? true : item.StatusQRIS === "Active" ? false : Boolean(item.StatusQRIS),
       GambarQRIS: item.GambarQRIS || item.gambarQRIS || ""
     }));
 
+    
     // Cek duplikat URL dalam data yang diupload
     const urls = new Set();
     const duplicateUrls = [];
@@ -460,7 +479,7 @@ app.get('/api/qris/export', async (req, res) => {
     // Menyusun header response
     res.setHeader('Content-Disposition', `attachment; filename=qris_data_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    
+
     // Mengirimkan file excel ke client
     res.send(excelBuffer);
 

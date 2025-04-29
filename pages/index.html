@@ -91,7 +91,7 @@
 						</button>
 						<button id="exportData" type="button" class="btn btn-sm btn-secondary"><i class="fa fa-file"
 								aria-hidden="true"></i>
-							Export 
+							Export
 							<span id="exportLoading" style="display:none;">
 								<i class="fas fa-spinner fa-spin text-secondary ms-2"></i>
 							</span></button>
@@ -298,6 +298,27 @@
 					<div class="modal-footer">
 						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
 						<button type="button" id="confirmDelete" class="btn btn-danger">Delete</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Modal Preview Upload -->
+		<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+			<div class="modal-dialog modal-lg modal-dialog-centered">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title" id="previewModalLabel">Preview Upload Data</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body">
+						<div id="previewTableContainer" style="max-height: 400px; overflow: auto;"></div>
+					</div>
+					<div class="modal-footer">
+						<button type="button" id="confirmUploadBtn" class="btn btn-primary">Submit Data <span id="exportLoading"
+								style="display:none;">
+								<i class="fas fa-spinner fa-spin text-secondary ms-2"></i>
+							</span></button>
 					</div>
 				</div>
 			</div>

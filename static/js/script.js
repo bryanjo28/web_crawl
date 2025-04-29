@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const uploadModal = new bootstrap.Modal(document.getElementById('uploadUrl'));
   const editModal = new bootstrap.Modal(document.getElementById('editUrlModal'));
   const deleteModal = new bootstrap.Modal(document.getElementById('deleteUrlModal'))
+  const previewModal = bootstrap.Modal.getInstance(document.getElementById("previewModal"));
 
   // 2) Tombol untuk membuka masing‑masing modal
   document.getElementById('openAddBtn').addEventListener('click', () => addModal.show());
@@ -99,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function showAlert(success, action, customMessage = null) {
     const ok = document.getElementById("successAlert");
     const no = document.getElementById("errorAlert");
-  
+
     if (customMessage) {
       if (success) {
         document.getElementById("successMessage").textContent = customMessage;
@@ -140,7 +141,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       }
     }
-  
+
     if (success) {
       ok.style.display = 'block';
       no.style.display = 'none';
@@ -148,13 +149,13 @@ document.addEventListener('DOMContentLoaded', function () {
       no.style.display = 'block';
       ok.style.display = 'none';
     }
-  
+
     setTimeout(() => {
       ok.style.display = 'none';
       no.style.display = 'none';
     }, 3000);
   }
-  
+
 
   // flatpickr init (jika perlu)
   flatpickr("#last-crawling", {
@@ -186,11 +187,11 @@ document.addEventListener('DOMContentLoaded', function () {
   function renderTable() {
     const tbody = document.querySelector("table tbody");
     tbody.innerHTML = "";
-  
+
     const start = (currentPage - 1) * pageSize;
     const end = start + pageSize;
     const currentData = filteredData.slice(start, end);
-  
+
     if (currentData.length === 0) {
       const row = document.createElement("tr");
       row.innerHTML = `
@@ -199,7 +200,7 @@ document.addEventListener('DOMContentLoaded', function () {
       tbody.appendChild(row);
       return; // langsung berhenti di sini kalau kosong
     }
-  
+
     currentData.forEach((item, index) => {
       const row = document.createElement("tr");
       row.innerHTML = `
@@ -225,10 +226,10 @@ document.addEventListener('DOMContentLoaded', function () {
       `;
       tbody.appendChild(row);
     });
-  
+
     bindActionButtons();
   }
-  
+
 
   function formatDate(dateStr) {
     if (!dateStr) return '-';
@@ -239,9 +240,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const totalPages = Math.ceil(filteredData.length / pageSize);
     const paginationContainer = document.getElementById("pagination");
     if (!paginationContainer) return;
-  
+
     paginationContainer.innerHTML = '';
-  
+
     // Prev Button
     const prevBtn = document.createElement("button");
     prevBtn.innerHTML = `<i class="fa fa-angle-left"></i>`;
@@ -255,13 +256,13 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
     paginationContainer.appendChild(prevBtn);
-  
+
     // Page Info
     const pageInfo = document.createElement("span");
     pageInfo.className = 'mx-2';
     pageInfo.textContent = `Page ${currentPage} of ${totalPages || 1}`;
     paginationContainer.appendChild(pageInfo);
-  
+
     // Next Button
     const nextBtn = document.createElement("button");
     nextBtn.innerHTML = `<i class="fa fa-angle-right"></i>`;
@@ -276,7 +277,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     paginationContainer.appendChild(nextBtn);
   }
-  
+
 
   function bindActionButtons() {
     document.querySelectorAll(".edit-btn").forEach(btn => {
@@ -310,9 +311,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll(".delete-btn").forEach(btn => {
       btn.addEventListener("click", function () {
         selectedRowId = this.dataset.id;
-
-        const deleteModalInstance = new bootstrap.Modal(document.getElementById("deleteUrlModal"));
-        deleteModalInstance.show();
+        deleteModal.show();
       });
     });
 
@@ -324,57 +323,50 @@ document.addEventListener('DOMContentLoaded', function () {
     const webStatus = document.getElementById("web-status").value;
     const uid = document.getElementById("uid").value;
     const dateRange = document.getElementById("last-crawling").value.trim();
-  
-    console.log("🔎 Start Search");
-    console.log("Keyword:", keyword);
-    console.log("Classification:", classification);
-    console.log("WebStatus:", webStatus);
-    console.log("UID:", uid);
-    console.log("Date Range Input:", dateRange);
-  
+
     // Parse tanggal
     let startDate = null;
     let endDate = null;
     if (dateRange) {
       let separator = '-';
       if (dateRange.includes('to')) separator = 'to';
-  
+
       const [startStr, endStr] = dateRange.split(separator).map(d => d.trim());
       const startParts = startStr.split('/');
       const endParts = endStr.split('/');
-  
+
       startDate = new Date(+startParts[2], +startParts[0] - 1, +startParts[1]);
       endDate = new Date(+endParts[2], +endParts[0] - 1, +endParts[1]);
-  
+
     }
-  
+
     filteredData = tableData.filter(item => {
       const urlMatch = (item.url || '').toLowerCase().includes(keyword);
       const inputByMatch = (item.inputBy || '').toLowerCase().includes(keyword);
       const uidMatchKeyword = (item.uid || '').toLowerCase().includes(keyword);
-  
+
       const flagUserMatch = (() => {
         if (keyword === 'true') return item.flagUser === true;
         if (keyword === 'false') return item.flagUser === false;
         return true;
       })();
-  
+
       const classificationMatch = !classification || item.flagUser === classification;
       const webStatusMatch = !webStatus || item.webStatus === webStatus;
       const uidMatchSelect = !uid || item.uid === uid;
-  
+
       let dateMatch = true;
       if (startDate && endDate) {
         if (item.lastCrawl) {
           const lastCrawling = new Date(item.lastCrawl);
           const lastCrawlingOnly = new Date(lastCrawling.getFullYear(), lastCrawling.getMonth(), lastCrawling.getDate());
-  
+
           dateMatch = lastCrawlingOnly >= startDate && lastCrawlingOnly <= endDate;
         } else {
           dateMatch = false;
         }
       }
-  
+
       const finalMatch = (
         (urlMatch || inputByMatch || uidMatchKeyword) &&
         classificationMatch &&
@@ -383,18 +375,18 @@ document.addEventListener('DOMContentLoaded', function () {
         flagUserMatch &&
         dateMatch
       );
-  
-  
+
+
       return finalMatch;
     });
-  
+
     console.log("Filtered Data (after search):", filteredData);
-  
+
     currentPage = 1;
     renderTable();
     renderPagination();
   }
-  
+
 
   //Reset Button
   document.querySelector('.resetButton').addEventListener('click', () => {
@@ -485,21 +477,21 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById("exportData").addEventListener("click", async function () {
     const exportBtn = document.getElementById("exportData");
     const exportLoading = document.getElementById("exportLoading");
-  
+
     exportLoading.style.display = "inline-block"; // Tampilkan loading
     exportBtn.disabled = true;
-  
+
     try {
       console.log('Mau fetch export data...'); // Log fetch trigger
-  
+
       const response = await fetch('/api/url/export', {
         method: 'GET'
       });
-  
+
       if (!response.ok) {
         throw new Error('Gagal export dari server.');
       }
-  
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -508,9 +500,9 @@ document.addEventListener('DOMContentLoaded', function () {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-  
+
       showAlert(true, "export");
-  
+
     } catch (error) {
       console.error('Export error:', error);
       alert('Gagal export data dari server.');
@@ -524,83 +516,196 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  
+  // Fungsi untuk mengonversi Excel serial date ke format JavaScript Date
+  function convertExcelSerialDate(serialDate) {
+    if (!serialDate || serialDate === "null" || isNaN(serialDate)) return null; // Check for null or invalid date
 
+    // Convert the serial date to JavaScript Date object
+    const date = new Date((serialDate - 25569) * 86400 * 1000);
 
-  document.getElementById("submitUrl").addEventListener("click", async function () {
+    // Return the date if valid, otherwise null
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  // Fungsi untuk menampilkan data preview yang dibatasi hanya 5 teratas
+  function showPreviewTable(data) {
+    const container = document.getElementById("previewTableContainer");
+    container.innerHTML = "";
+
+    if (data.length === 0) {
+      container.innerHTML = "<p class='text-center'>No data to preview.</p>";
+      return;
+    }
+
+    const table = document.createElement("table");
+    table.className = "table table-bordered table-striped";
+
+    // Table Header
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+
+    // Dynamically creating table headers based on the first row's keys
+    const headers = Object.keys(data[0]);
+    headers.forEach((header) => {
+      const th = document.createElement("th");
+      th.textContent = header;
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    // Table Body
+    const tbody = document.createElement("tbody");
+
+    // Limiting to 5 rows for preview
+    const limitedData = data.slice(0, 5);
+
+    limitedData.forEach((item) => {
+      const tr = document.createElement("tr");
+      headers.forEach((header) => {
+        const td = document.createElement("td");
+        let value = item[header] || "-";
+
+        // Handle the case where headers like 'First Crawl', 'Last Crawl', and 'Last Update' appear
+        if (
+          header.toLowerCase().includes("crawl") ||
+          header.toLowerCase().includes("update")
+        ) {
+          value = convertExcelSerialDate(item[header]);
+          if (value) {
+            value = value.toLocaleDateString("en-US"); // Format the date properly
+          } else {
+            value = "-"; // If not a valid date, show a dash
+          }
+        }
+
+        td.textContent = value;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+
+    container.appendChild(table);
+
+    // Show the preview modal
+    const previewModal = new bootstrap.Modal(document.getElementById("previewModal"));
+    previewModal.show();
+  }
+
+  document.getElementById("submitUrl").addEventListener("click", function () {
     const fileInput = document.getElementById("uploadUrlFile");
     const file = fileInput.files[0];
-  
+
     if (!file) {
-      showAlert(false, "upload", "No file selected!");
+      alert("Please select a file first.");
       return;
     }
-  
-    const allowedTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv'];
-    if (!allowedTypes.includes(file.type)) {
-      showAlert(false, "upload", "Only .xlsx or .csv files are allowed!");
+
+    const allowedExtensions = ["xlsx", "xls", "csv"];
+    const fileName = file.name;
+    const fileExtension = fileName.split(".").pop().toLowerCase();
+
+    if (!allowedExtensions.includes(fileExtension)) {
+      alert("Invalid file format. Please upload a .xlsx, .xls, or .csv file.");
       return;
     }
-  
+
     const reader = new FileReader();
-  
-    reader.onload = async function (e) {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-  
-        const requiredColumns = ["URL", "Input By", "Judul (flagUser)", "Status", "UID", "Password", "Crawling Status"];
-        const sheetColumns = Object.keys(rows[0] || {});
-  
-        const missingColumns = requiredColumns.filter(col => !sheetColumns.includes(col));
-        if (missingColumns.length > 0) {
-          showAlert(false, "upload", "Missing columns: " + missingColumns.join(", "));
-          return;
-        }
-  
-        const formatted = rows.map(row => ({
-          url: row.URL || "",
-          uid: row.UID || "",
-          password: row.Password || "",
-          inputBy: row["Input By"] || "User",
-          flagUser: row["Judul (flagUser)"] === "Y",
-          flagSystem: false,
-          webStatus: row.Status || "Active",
-          firstCrawl: null,
-          lastCrawl: null,
-          lastUpdate: new Date(),
-          crawlStatus: row["Crawling Status"] === "Success"
-        }));
-  
-        const res = await fetch('/api/urls/bulk', {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data: formatted })
-        });
-  
-        const result = await res.json();
-  
-        const modal = bootstrap.Modal.getInstance(document.getElementById("uploadUrl"));
-        modal.hide();
-  
-        if (res.ok) {
-          showAlert(true, "upload", result.message || "Upload URL Success");
-          await fetchData();
-        } else {
-          showAlert(false, "upload", result.message || "Failed to Upload URL");
-        }
-  
-      } catch (err) {
-        console.error("Upload error:", err);
-        showAlert(false, "upload", "Unexpected error during upload");
-      }
+
+    reader.onload = function (e) {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" }); // Ensure empty cells are handled
+
+      parsedExcelData = jsonData; // Store the data globally
+
+      // Show Preview Table
+      showPreviewTable(parsedExcelData);  // Display the preview modal
     };
-  
+
     reader.readAsArrayBuffer(file);
   });
-  
+
+  document.getElementById("confirmUploadBtn").addEventListener("click", async function () {
+    // Make sure there is data available
+    if (!parsedExcelData || parsedExcelData.length === 0) {
+      alert("No data to upload.");
+      return;
+    }
+
+    // Show loading spinner or indication that upload is in progress
+    document.getElementById("exportLoading").style.display = "inline-block";
+
+    try {
+      // Prepare data for the request (you may map the data if necessary)
+      const formattedData = parsedExcelData.map(item => ({
+        url: item.URL || "",
+        inputBy: item["Input By"] || "User",
+        flagUser: item["Judul (flagUser)"] === "Y" ? true : false,
+        flagSystem: false, // Assumed value, adjust as needed
+        webStatus: item.Status || "Active",
+        uid: item.UID || "",
+        password: item.Password || "",
+        firstCrawl: item["First Crawl"] ? convertExcelSerialDate(item["First Crawl"]) : null,
+        lastCrawl: item["Last Crawl"] ? convertExcelSerialDate(item["Last Crawl"]) : null,
+        lastUpdate: item.lastUpdate || new Date(), // Make sure the date is valid
+        crawlStatus: item["Crawling Status"] === "Success"
+      }));
+
+
+      // Make the POST request to the server
+      const response = await fetch('/api/urls/bulk', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ data: formattedData })
+      });
+
+      const result = await response.json();
+
+      // Hide the loading spinner
+      document.getElementById("exportLoading").style.display = "none";
+
+      // Check if the upload was successful
+      if (response.ok) {
+        const previewModal = bootstrap.Modal.getInstance(document.getElementById("previewModal"));
+        const uploadModal = bootstrap.Modal.getInstance(document.getElementById("uploadUrl"));
+
+        if (uploadModal) {
+          uploadModal.hide();
+        }
+
+        if (previewModal) {
+          previewModal.hide();
+        }
+
+        showAlert(true, "upload", result.message || "Upload successful");
+        // Optionally, you can reload the data or refresh the view after upload
+
+        await fetchData();
+      } else {
+        if (uploadModal) {
+          uploadModal.hide();
+        }
+
+        if (previewModal) {
+          previewModal.hide();
+        }
+
+        showAlert(false, "upload", result.message || "Failed to upload data");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      document.getElementById("exportLoading").style.display = "none"; // Hide loading spinner in case of error
+      showAlert(false, "upload", "An unexpected error occurred during upload.");
+    }
+  });
+
 
   // Inisialisasi
   fetchData();

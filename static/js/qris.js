@@ -169,22 +169,20 @@ document.addEventListener("DOMContentLoaded", function () {
         <td>${item.bank}</td>
         <td>${item.NoQRIS}</td>
         <td>${new Date(item.DateFound).toLocaleDateString("en-US")}</td>
-        <td>${
-          item.DateBlocked
-            ? new Date(item.DateBlocked).toLocaleDateString("en-US")
-            : "-"
+        <td>${item.DateBlocked
+          ? new Date(item.DateBlocked).toLocaleDateString("en-US")
+          : "-"
         }</td>
         <td>${isBlocked ? "Blocked" : "Active"}</td>
         <td>${item.directory || "-"}</td>
         <td>
-          ${
-            !isBlocked
-              ? `
+          ${!isBlocked
+          ? `
             <button class="btn btn-sm btn-danger delete-btn" data-id="${item._id}">
               <i class="fa fa-ban" aria-hidden="true"></i>
             </button>`
-              : ""
-          }
+          : ""
+        }
         </td>
       `;
       tbody.appendChild(row);
@@ -229,11 +227,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (prevButton) {
       prevButton.disabled = currentPage === 1;
-      prevButton.className = `btn btn-sm mx-1 ${
-        currentPage === 1
+      prevButton.className = `btn btn-sm mx-1 ${currentPage === 1
           ? "btn-outline-secondary disabled"
           : "btn-outline-primary"
-      }`;
+        }`;
       prevButton.onclick = () => {
         if (currentPage > 1) {
           currentPage--;
@@ -244,11 +241,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (nextButton) {
       nextButton.disabled = currentPage === totalPages;
-      nextButton.className = `btn btn-sm mx-1 ${
-        currentPage === totalPages
+      nextButton.className = `btn btn-sm mx-1 ${currentPage === totalPages
           ? "btn-outline-secondary disabled"
           : "btn-outline-primary"
-      }`;
+        }`;
       nextButton.onclick = () => {
         if (currentPage < totalPages) {
           currentPage++;
@@ -480,7 +476,7 @@ document.addEventListener("DOMContentLoaded", function () {
         let value = item[header] || "-";
 
         // Mengonversi serial date menjadi tanggal yang benar jika field adalah DateFound atau DateBlocked
-        if (header === "DateFound" || header === "DateBlocked") {
+        if (header === "Date Found" || header === "Date Blocked") {
           value = convertExcelSerialDate(item[header]);
           if (value) {
             value = value.toLocaleDateString("en-US"); // Format tanggal dengan Locale
@@ -506,41 +502,64 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Saat tombol Confirm di klik, kirim data ke server
-  document
-    .getElementById("confirmUploadBtn")
-    .addEventListener("click", async function () {
-      if (parsedExcelData.length === 0) {
-        alert("No data to upload.");
-        return;
-      }
+  document.getElementById("confirmUploadBtn").addEventListener("click", async function () {
+    if (parsedExcelData.length === 0) {
+      alert("No data to upload.");
+      return;
+    }
 
-      try {
-        const response = await fetch("/api/qris/upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ data: parsedExcelData }),
-        });
+    // Format data before sending to the backend
+    const formattedData = parsedExcelData.map(item => ({
+      url: item.URL || "", // Assuming 'URL' column in Excel
+      bank: item.Bank || "", // Assuming 'Bank' column in Excel
+      NoQRIS: item['No QRIS'] || "", // Assuming 'No QRIS' column in Excel
+      DateFound: item['Date Found'] ? convertExcelSerialDate(item['Date Found']) : null, // Convert serial date for 'Date Found'
+      DateBlocked: item['Date Blocked'] && item['Date Blocked'] !== 'NULL' ? convertExcelSerialDate(item['Date Blocked']) : null, // Convert serial date for 'Date Blocked'
+      StatusQris: item['Status QRIS'] === 'TRUE', // Convert 'Status QRIS' to boolean (TRUE => true, FALSE => false)
+      GambarQris: item['Gambar QRIS'] || "", // Assuming 'Gambar QRIS' column in Excel (Base64 string)
+    }));
 
-        const result = await response.json();
+    // Log formatted data before sending it to the backend
+    console.log("Formatted Data to Send:", formattedData);
 
-        // Menampilkan hanya 5 URL yang tidak valid di pesan error
-        if (response.ok) {
-          showAlert(true, "upload", result.message);
-          location.reload(); // Optionally reload the page
-        } else {
-          const invalidUrls = result.message.split(","); // Misalnya, menganggap server mengirimkan URL yang tidak valid sebagai array
-          const limitedInvalidUrls = invalidUrls.slice(0, 5).join(", "); // Ambil hanya 5 pertama
-          const message = `Failed to upload URLs: ${limitedInvalidUrls}`;
-          showAlert(false, "upload", message);
+    try {
+      const response = await fetch("/api/qris/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ data: formattedData }), // Send formatted data to the backend
+      });
+
+      const result = await response.json();
+
+      // Menampilkan hanya 5 URL yang tidak valid di pesan error
+      if (response.ok) {
+        showAlert(true, "upload", result.message);
+        const previewModal = bootstrap.Modal.getInstance(document.getElementById("previewModal"));
+        const uploadModal = bootstrap.Modal.getInstance(document.getElementById("uploadUrl"));
+
+        if (uploadModal) {
+          uploadModal.hide();
         }
-      } catch (error) {
-        console.error("Upload error:", error);
-        showAlert(false, "upload", "Terjadi error saat upload.");
-      }
-    });
 
+        if (previewModal) {
+          previewModal.hide();
+        }
+        
+        showAlert(true, "upload", result.message || "Upload successful");
+
+      } else {
+        const invalidUrls = result.message.split(","); // Misalnya, menganggap server mengirimkan URL yang tidak valid sebagai array
+        const limitedInvalidUrls = invalidUrls.slice(0, 5).join(", "); // Ambil hanya 5 pertama
+        const message = `Failed to upload URLs: ${limitedInvalidUrls}`;
+        showAlert(false, "upload", message);
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      showAlert(false, "upload", "Terjadi error saat upload.");
+    }
+  });
   // Ubah data saat Block
   document
     .getElementById("blockButton")
@@ -571,7 +590,7 @@ document.addEventListener("DOMContentLoaded", function () {
           setTimeout(() => {
             populateTable(tableData); // Update table dengan data terbaru
             showAlert(true, "blocked", result.message);
-            
+
           }, 100);
         } catch (error) {
           console.error("Error blocking QRIS:", error);
@@ -586,42 +605,42 @@ document.addEventListener("DOMContentLoaded", function () {
       applyFilter();
     });
 
-    document.getElementById("exportData").addEventListener("click", async function () {
-      const exportBtn = document.getElementById("exportData");
-      const exportLoading = document.getElementById("exportLoading");
-    
-      // Tampilkan spinner dan sembunyikan tombol export
-      exportLoading.style.display = "inline-block";
-      exportBtn.disabled = true;
-    
-      try {
-        const response = await fetch('/api/qris/export', {
-          method: 'GET'
-        });
-    
-        if (!response.ok) {
-          throw new Error('Gagal mengunduh file.');
-        }
-    
-        // Menerima file dalam bentuk Blob
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `qris_data_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    
-      } catch (error) {
-        console.error("Export error:", error);
-        alert('Gagal export data.');
-      } finally {
-        // Sembunyikan spinner dan aktifkan kembali tombol export
-        exportLoading.style.display = "none";
-        exportBtn.disabled = false;
+  document.getElementById("exportData").addEventListener("click", async function () {
+    const exportBtn = document.getElementById("exportData");
+    const exportLoading = document.getElementById("exportLoading");
+
+    // Tampilkan spinner dan sembunyikan tombol export
+    exportLoading.style.display = "inline-block";
+    exportBtn.disabled = true;
+
+    try {
+      const response = await fetch('/api/qris/export', {
+        method: 'GET'
+      });
+
+      if (!response.ok) {
+        throw new Error('Gagal mengunduh file.');
       }
-    });
-    
-    
+
+      // Menerima file dalam bentuk Blob
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `qris_data_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+    } catch (error) {
+      console.error("Export error:", error);
+      alert('Gagal export data.');
+    } finally {
+      // Sembunyikan spinner dan aktifkan kembali tombol export
+      exportLoading.style.display = "none";
+      exportBtn.disabled = false;
+    }
+  });
+
+
 });
