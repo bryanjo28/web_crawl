@@ -1,181 +1,304 @@
 <!DOCTYPE html>
 <html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Qris Management</title>
+    <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css"> -->
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/static/styles.css" />
+    <link href="/static/fontawesome/css/all.min.css" rel="stylesheet" />
+    <!-- Flatpickr CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
+    />
+    <!-- jQuery CDN -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Qris Management</title>
-  <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css"> -->
-  <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
-  <link rel="stylesheet" href="/static/styles.css" />
-  <link href="/static/fontawesome/css/all.min.css" rel="stylesheet">
-  <!-- Flatpickr CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-  <!-- jQuery CDN -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <body>
+    <div class="container-fluid">
+      <div class="row min-vh-100">
+        <!-- Sidebar loaded dynamically via JavaScript -->
+        <div class="col-md-2 bg-light sidebar py-3 border-end">
+          <!-- Sidebar content will be dynamically loaded here -->
+        </div>
 
-</head>
+        <div class="col-md-10 p-4 content" id="content">
+          <h4 class="fw-bold">QRIS Management</h4>
+          <!-- Filter Form -->
+          <div class="mb-2 row">
+            <label for="search" class="col-sm-2 col-form-label">Search</label>
+            <div class="col-sm-2 pt-1">
+              <input
+                type="text"
+                id="search"
+                class="form-control form-control-sm"
+                placeholder="slot"
+              />
+            </div>
+          </div>
+          <div class="mb-2 row">
+            <label for="date-blocked" class="col-sm-2 col-form-label"
+              >Date Blocked</label
+            >
+            <div class="col-sm-2 pt-1">
+              <div class="input-group">
+                <input
+                  type="text"
+                  id="date-blocked"
+                  class="form-control form-control-sm"
+                />
+                <span class="input-group-text"
+                  ><i class="fa fa-calendar" aria-hidden="true"></i
+                ></span>
+              </div>
+            </div>
+          </div>
+          <div class="mb-2 row">
+            <label for="bank" class="col-sm-2 col-form-label">Bank</label>
+            <div class="col-sm-2 pt-1">
+              <input
+                type="text"
+                id="bank"
+                class="form-control form-control-sm"
+                placeholder="BCA"
+              />
+            </div>
+          </div>
+          <!-- Buttons -->
+          <div class="row mb-3">
+            <div class="col-md-4 d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-primary">
+                <i class="fa fa-search" aria-hidden="true"></i> Search
+              </button>
+              <!-- tombol di toolbar -->
+              <button id="openUploadBtn" class="btn btn-sm btn-warning">
+                <i class="fa fa-upload"></i> Upload
+              </button>
+							<button id="exportData" type="button" class="btn btn-sm btn-secondary">
+								<i class="fa fa-file" aria-hidden="true"></i> Export
+								<span id="exportLoading" style="display:none;">
+									<i class="fas fa-spinner fa-spin text-secondary ms-2"></i>
+								</span>
+							</button>
+            </div>
+          </div>
+          <!-- Alert Success -->
+          <div
+            class="alert alert-success alert-dismissible fade show"
+            id="successAlert"
+            style="display: none"
+          >
+            <i class="fas fa-check-circle me-2"></i>
+            <span id="successMessage">Add New URL Success</span>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="alert"
+              aria-label="Close"
+            ></button>
+          </div>
 
-<body>
-  <div class="container-fluid">
-    <div class="row min-vh-100">
-      <!-- Sidebar loaded dynamically via JavaScript -->
-      <div class="col-md-2 bg-light sidebar py-3 border-end">
-        <!-- Sidebar content will be dynamically loaded here -->
-      </div>
-
-      <div class="col-md-10 p-4 content" id="content">
-        <h4 class="fw-bold">QRIS Management</h4>
-        <!-- Filter Form -->
-        <div class="mb-2 row">
-          <label for="search" class="col-sm-2 col-form-label">Search</label>
-          <div class="col-sm-2 pt-1">
-            <input type="text" id="search" class="form-control form-control-sm" placeholder="slot">
+          <!-- Alert Error -->
+          <div
+            class="alert alert-danger alert-dismissible fade show"
+            id="errorAlert"
+            style="display: none"
+          >
+            <i class="fas fa-times-circle me-2"></i>
+            <span id="errorMessage">Failed to Add URL</span>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="alert"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="row mb-2" style="text-align: right">
+            <div class="col-sm-12">
+              <button class="btn btn-light resetButton">
+                <i class="fa fa-refresh" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <table class="table table-bordered table-hover text-sm">
+            <thead class="table-light">
+              <tr>
+                <th>No</th>
+                <th>URL</th>
+                <th>Bank</th>
+                <th>No QRIS</th>
+                <th>Date Found</th>
+                <th>Date Blocked</th>
+                <th>Status QRIS</th>
+                <th>Directory</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Data dari JS akan di-render di sini -->
+            </tbody>
+          </table>
+          <div
+            class="d-flex justify-content-center align-items-center gap-3 mt-3"
+            id="pagination"
+          >
+            <button id="prev-page" class="btn btn-outline-primary btn-sm">
+              <i class="fa fa-angle-left"></i>
+            </button>
+            <span id="pagination-info" class="mx-2">Page 1 of 1</span>
+            <button id="next-page" class="btn btn-outline-primary btn-sm">
+              <i class="fa fa-angle-right"></i>
+            </button>
           </div>
         </div>
-        <div class="mb-2 row">
-          <label for="date-blocked" class="col-sm-2 col-form-label">Date Blocked</label>
-          <div class="col-sm-2 pt-1">
-            <div class="input-group ">
-              <input type="text" id="date-blocked" class="form-control form-control-sm"
-                placeholder="3/1/2025 - 3/15/2025">
-              <span class="input-group-text"><i class="fa fa-calendar" aria-hidden="true"></i></span>
+
+        <!-- Modal Upload Rekening -->
+        <div
+          class="modal fade"
+          id="uploadUrl"
+          tabindex="-1"
+          aria-labelledby="uploadUrlLabel"
+          aria-hidden="true"
+        >
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="uploadUrlLabel">
+                  Upload Data QRIS
+                </h5>
+                <button
+                  type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"
+                  aria-label="Close"
+                ></button>
+              </div>
+              <div class="modal-body">
+                <label for="uploadQris" class="col-sm-4 col-form-label"
+                  >Upload Data</label
+                >
+                <input type="file" class="form-control" id="uploadQris" />
+                <span class="formatUpload">format : .xlsx, .csv</span>
+              </div>
+              <div class="modal-footer">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-bs-dismiss="modal"
+                >
+                  Close
+                </button>
+                <button type="button" id="submitUrl" class="btn btn-primary">
+                  Submit
+                </button>
+              </div>
             </div>
           </div>
         </div>
-        <div class="mb-2 row">
-          <label for="bank" class="col-sm-2 col-form-label">Bank</label>
-          <div class="col-sm-2 pt-1">
-            <input type="text" id="bank" class="form-control form-control-sm" placeholder="BCA">
+
+        <!-- Modal Block Rekening -->
+        <div
+          class="modal fade"
+          id="blokQrisModal"
+          tabindex="-1"
+          aria-labelledby="blokQrisModalLabel"
+          aria-hidden="true"
+        >
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="blokQrisModalLabel">Block QRIS</h5>
+                <button
+                  type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"
+                  aria-label="Close"
+                ></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-2 row">
+                  <label for="noQris" class="col-sm-4 col-form-label"
+                    >No Qris</label
+                  >
+                  <div class="col-sm-6 pt-1">
+                    <input
+                      type="text"
+                      id="noQris"
+                      class="form-control form-control-sm"
+                      placeholder="123532"
+                      disabled
+                    />
+                  </div>
+                </div>
+                <div class="mb-2 row">
+                  <label for="dateFound" class="col-sm-4 col-form-label"
+                    >Date Found</label
+                  >
+                  <div class="col-sm-6 pt-1">
+                    <div class="input-group">
+                      <input
+                        type="text"
+                        id="dateFound"
+                        class="form-control form-control-sm"
+                        disabled
+                      />
+                      <span class="input-group-text"
+                        ><i class="fa fa-calendar" aria-hidden="true"></i
+                      ></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-bs-dismiss="modal"
+                >
+                  Close
+                </button>
+                <button type="button" id="blockButton" class="btn btn-danger">
+                  Block
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-        <!-- Buttons -->
-        <div class="row mb-3">
-          <div class="col-md-4 d-flex gap-2">
-            <button type="button" class="btn btn-sm btn-primary"><i class="fa fa-search" aria-hidden="true"></i>
-              Search</button>
-            <!-- tombol di toolbar -->
-            <button id="openUploadBtn" class="btn btn-sm btn-warning">
-              <i class="fa fa-upload"></i> Upload
-            </button>
-            <button type="button" class="btn btn-sm btn-secondary"><i class="fa fa-file" aria-hidden="true"></i>
-              Export</button>
-
-          </div>
-        </div>
-        <!-- Alert Success -->
-        <div class="alert alert-success alert-dismissible fade show" id="successAlert" style="display: none;">
-          <i class="fas fa-check-circle me-2"></i>
-          <span id="successMessage">Add New URL Success</span>
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-
-        <!-- Alert Error -->
-        <div class="alert alert-danger alert-dismissible fade show" id="errorAlert" style="display: none;">
-          <i class="fas fa-times-circle me-2"></i>
-          <span id="errorMessage">Failed to Add URL</span>
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        <table class="table table-bordered table-hover text-sm">
-          <thead class="table-light">
-            <tr>
-              <th>No</th>
-              <th>URL</th>
-              <th>Bank</th>
-              <th>No QRIS</th>
-              <th>Date Found</th>
-              <th>Date Blocked</th>
-              <th>Status QRIS</th>
-              <th>Directory</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Data dari JS akan di-render di sini -->
-          </tbody>
-        </table>
-        <div class="d-flex justify-content-center align-items-center gap-3 mt-3" id="pagination">
-          <button id="prev-page" class="btn btn-outline-primary btn-sm">
-            <i class="fa fa-angle-left"></i>
-          </button>
-          <span id="pagination-info" class="mx-2">Page 1 of 1</span>
-          <button id="next-page" class="btn btn-outline-primary btn-sm">
-            <i class="fa fa-angle-right"></i>
-          </button>
-        </div>
-        
       </div>
+    </div>
 
-     <!-- Modal Upload Rekening -->
-		 <div class="modal fade" id="uploadUrl" tabindex="-1" aria-labelledby="uploadUrlLabel" aria-hidden="true">
-			<div class="modal-dialog modal-dialog-centered">
-				<div class="modal-content">
-					<div class="modal-header">
-						<h5 class="modal-title" id="uploadUrlLabel">Upload Data QRIS</h5>
-						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-					</div>
-					<div class="modal-body">
-						<label for="uploadRek" class="col-sm-4 col-form-label">Upload Data</label>
-						<input type="file" class="form-control"id="uploadRek">
-						<span class="formatUpload">format : .xlsx, .csv</span>
-					</div>
-					<div class="modal-footer">
-						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-						<button type="button" id="submitUrl" class="btn btn-primary">Submit</button>
-					</div>
+    <!-- Modal Preview Upload -->
+	<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="previewModalLabel">Preview Upload Data</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 				</div>
-			</div>
-		 </div>
-
-		 <!-- Modal Block Rekening -->
-		 <div class="modal fade" id="blokQrisModal" tabindex="-1" aria-labelledby="blokQrisModalLabel" aria-hidden="true">
-			<div class="modal-dialog modal-dialog-centered">
-				<div class="modal-content">
-					<div class="modal-header">
-						<h5 class="modal-title" id="blokQrisModalLabel">Block QRIS </h5>
-						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-					</div>
-					<div class="modal-body">
-						<div class="mb-2 row">
-							<label for="noQris" class="col-sm-4 col-form-label">No Qris</label>
-							<div class="col-sm-6 pt-1">
-								<input type="text" id="noQris" class="form-control form-control-sm" placeholder="123532" disabled>
-							</div>
-						</div>
-						<div class="mb-2 row">
-							<label for="dateBlock" class="col-sm-4 col-form-label">Date Blocked</label>
-							<div class="col-sm-6 pt-1">
-								<div class="input-group ">
-									<input type="text" id="dateBlock" class="form-control form-control-sm"
-										placeholder="3/1/2025 - 3/15/2025" disabled>
-									<span class="input-group-text"><i class="fa fa-calendar" aria-hidden="true"></i></span>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="modal-footer">
-						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-						<button type="button" id="blockButton" class="btn btn-danger">Block</button>
-					</div>
+				<div class="modal-body">
+					<div id="previewTableContainer" style="max-height: 400px; overflow: auto;"></div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" id="confirmUploadBtn" class="btn btn-primary">Submit Data</button>
 				</div>
 			</div>
 		</div>
+	</div>
 
 
-    </div>
-  </div>
-
-
-
-  <!-- Bootstrap JS -->
-  <!-- <script src="	https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script> -->
-  <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="/static/bootstrap/js/bootstrap.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.min.js"
+    <!-- Bootstrap JS -->
+    <!-- <script src="	https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script> -->
+    <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/bootstrap/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.min.js"
     integrity="sha384-cuYeSxntonz0PPNlHhBs68uyIAVpIIOZZ5JqeqvYYIcEL727kskC66kF92t6Xl2V"
     crossorigin="anonymous"></script> -->
-  <script src="/static/js/qris.js"></script>
-</body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+    <script src="/static/js/qris.js"></script>
+  </body>
 </html>

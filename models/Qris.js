@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const qrisSchema = new mongoose.Schema({
   url: { type: String, required: true },
   bank: { type: String, required: true },
-  NoQRIS: { type: String, required: true },
+  NoQRIS: { type: Number, required: true },
   DateFound: { type: Date, required: true },
   DateBlocked: { type: Date },
   StatusQRIS: { type: Boolean, required: true },

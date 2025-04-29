@@ -327,21 +327,14 @@ app.get('/api/rekening/export', async (req, res) => {
 // API: Fetch all QRIS data
 app.get('/api/qris', async (req, res) => {
   try {
-    // Ambil data QRIS dari database
-    const qrisData = await QRISModel.find();
-
-    // Cek apakah data ada
-    if (!qrisData || qrisData.length === 0) {
-      return res.status(404).json({ message: "Tidak ada data QRIS yang ditemukan." });
-    }
-
-    // Kirim data sebagai response
+    const qrisData = await QRISModel.find(); // misal ambil data dari MongoDB
     res.json(qrisData);
   } catch (error) {
-    console.error("Error saat fetch QRIS:", error);
-    res.status(500).json({ message: "Gagal fetch data QRIS", error: error.message });
+    console.error('Error fetching QRIS data:', error);
+    res.status(500).send('Server error');
   }
 });
+
 
 // API: Block QRIS per ID
 app.put('/api/qris/:id/block', async (req, res) => {
@@ -366,6 +359,114 @@ app.put('/api/qris/:id/block', async (req, res) => {
   } catch (error) {
     console.error('Error blocking QRIS:', error);
     res.status(500).json({ message: 'Failed to block QRIS', error: error.message });
+  }
+});
+
+// Fungsi untuk mengonversi Excel serial date ke format JavaScript Date
+function convertExcelSerialDate(serialDate) {
+  if (!serialDate || serialDate === "null") return null; // Jika kosong atau "null" sebagai string, set ke null
+  const date = new Date((serialDate - 25569) * 86400 * 1000); // Konversi Excel serial date
+  return isNaN(date.getTime()) ? null : date; // Jika tidak valid, kembalikan null
+}
+
+app.post('/api/qris/upload', async (req, res) => {
+  try {
+    const { data } = req.body;
+
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ message: "Invalid data format." });
+    }
+
+    // Normalisasi field names dan validasi
+    const normalizedData = data.map(item => ({
+      url: (item.url || "").trim(),
+      bank: (item.bank || "").trim(),
+      NoQRIS: (String(item.NoQRIS) || "").trim(),
+      DateFound: convertExcelSerialDate(item.DateFound),
+      DateBlocked: convertExcelSerialDate(item.DateBlocked),
+      StatusQRIS: item.StatusQRIS === "Blocked" ? true : item.StatusQRIS === "Active" ? false : Boolean(item.StatusQRIS),
+      GambarQRIS: item.GambarQRIS || item.gambarQRIS || ""
+    }));
+
+    // Cek duplikat URL dalam data yang diupload
+    const urls = new Set();
+    const duplicateUrls = [];
+
+    for (const item of normalizedData) {
+      if (urls.has(item.url)) {
+        duplicateUrls.push(item.url); // Simpan URL yang duplikat
+      } else {
+        urls.add(item.url);
+      }
+    }
+
+    // Jika ada URL duplikat, kirimkan pesan error
+    if (duplicateUrls.length > 0) {
+      return res.status(400).json({
+        message: `Duplicate URLs found: ${duplicateUrls.join(", ")}`
+      });
+    }
+
+    // Validasi dan pengecekan URL di database
+    const existingUrls = await QRISModel.find({ url: { $in: Array.from(urls) } });
+
+    if (existingUrls.length > 0) {
+      const existingUrlsSet = new Set(existingUrls.map(item => item.url));
+      const duplicateInDb = Array.from(urls).filter(url => existingUrlsSet.has(url));
+
+      if (duplicateInDb.length > 0) {
+        return res.status(400).json({
+          message: `These URLs already exist in the database: ${duplicateInDb.join(", ")}`
+        });
+      }
+    }
+
+    // Insert data ke MongoDB jika tidak ada duplikat
+    await QRISModel.insertMany(normalizedData);
+
+    res.json({ message: "Data uploaded successfully." });
+
+  } catch (error) {
+    console.error("Upload error:", error);
+    res.status(500).json({ message: "Server error during upload." });
+  }
+});
+
+// Endpoint untuk ekspor data QRIS ke Excel
+app.get('/api/qris/export', async (req, res) => {
+  try {
+    // Mengambil semua data QRIS dari database
+    const qrisData = await QRISModel.find();
+
+    // Menyiapkan data untuk worksheet
+    const dataForExcel = qrisData.map(item => ({
+      URL: item.url,
+      Bank: item.bank,
+      NoQRIS: item.NoQRIS,
+      DateFound: item.DateFound ? new Date(item.DateFound).toLocaleDateString('en-US') : '-',
+      DateBlocked: item.DateBlocked ? new Date(item.DateBlocked).toLocaleDateString('en-US') : '-',
+      StatusQRIS: item.StatusQRIS ? 'Blocked' : 'Active', // Sesuaikan dengan StatusQRIS
+      GambarQRIS: item.GambarQRIS || '-',
+    }));
+
+    // Membuat worksheet dan workbook
+    const ws = XLSX.utils.json_to_sheet(dataForExcel);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'QRIS Data');
+
+    // Mengkonversi ke file excel buffer
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' });
+
+    // Menyusun header response
+    res.setHeader('Content-Disposition', `attachment; filename=qris_data_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    
+    // Mengirimkan file excel ke client
+    res.send(excelBuffer);
+
+  } catch (error) {
+    console.error("Export error:", error);
+    res.status(500).json({ message: "Gagal mengekspor data." });
   }
 });
 

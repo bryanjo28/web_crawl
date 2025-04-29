@@ -198,7 +198,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Pagination Controls
   function updatePaginationControls() {
-    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+    const totalPages = Math.max(1, Math.ceil(filteredData.length / itemsPerPage)); // MINIMAL 1
 
     const paginationInfo = document.getElementById("pagination-info");
     if (paginationInfo) {
