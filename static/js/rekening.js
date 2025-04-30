@@ -30,17 +30,9 @@ document.addEventListener("DOMContentLoaded", function () {
     })
     .catch(error => console.log('Error loading the navbar:', error));
 
-  const uploadModal = new bootstrap.Modal(document.getElementById('uploadUrl'))
+  const uploadModal = new bootstrap.Modal(document.getElementById('uploadRek'))
   document.getElementById('openUploadBtn').addEventListener('click', () => uploadModal.show());
 
-  // Submit button inside Upload URL modal
-  document.getElementById("submitRek").addEventListener("click", function () {
-    const isSuccess = Math.random() > 0.5; // Simulate success/failure
-    setTimeout(function () {
-      uploadModal.hide();
-      showAlert(isSuccess, "upload");
-    }, 1000);
-  });
 
   // Helper function to display alert messages based on the action
   function showAlert(success, action, customMessage = null) {
@@ -117,6 +109,8 @@ document.addEventListener("DOMContentLoaded", function () {
   let currentPage = 1;
   const itemsPerPage = 10;
   let selectedRowId = null;
+  let parsedRekData = []; // Global cache
+
 
   // Fetch semua data dari server
   async function fetchTableData() {
@@ -187,7 +181,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (item) {
           selectedRowId = id;
           document.getElementById("noRek").value = item.NoRekening;
-          document.getElementById("dateBlock").value = item.DateBlocked ? new Date(item.DateBlocked).toLocaleDateString("en-US") : '';
+          document.getElementById("dateFound").value = item.DateFound ? new Date(item.DateFound).toLocaleDateString("en-US") : '';
 
           const blockModalInstance = new bootstrap.Modal(document.getElementById("blokRekModal"));
           blockModalInstance.show();
@@ -355,8 +349,15 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  document.getElementById('submitRek').addEventListener('click', async function () {
-    const fileInput = document.getElementById('uploadRek');
+  function convertExcelSerialDate(serialDate) {
+    if (!serialDate || serialDate === "null" || isNaN(serialDate)) return null;
+    const date = new Date((serialDate - 25569) * 86400 * 1000);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+
+  document.getElementById('submitRek').addEventListener('click', function () {
+    const fileInput = document.getElementById('uploadRekFile');
     const file = fileInput.files[0];
 
     if (!file) {
@@ -366,70 +367,117 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const reader = new FileReader();
 
-    reader.onload = async function (e) {
+    reader.onload = function (e) {
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
 
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
-      console.log('Parsed Excel Data:', jsonData);
+      parsedRekData = jsonData;
 
-      // Mapping sesuai kebutuhan
-      const mappedData = jsonData.map((row) => ({
-        url: row.URL || '',
-        bank: row.Bank || '',
-        noRek: row['No Rek'] || '',
-        dateFound: row['Date Found'] ? new Date(row['Date Found']) : null,
-        dateBlocked: row['Date Blocked'] ? new Date(row['Date Blocked']) : null,
-        statusRekening: row['Status Rekening'] || '',
-        directory: row.Directory || '-',
-      }));
-
-      console.log('Mapped Data to be sent:', mappedData);
-
-      // Kirim ke server via fetch (POST)
-      try {
-        const response = await fetch('/api/rekening/bulk', {  // (ganti URL kalau perlu)
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ data: mappedData })
-        });
-
-        const result = await response.json();
-        console.log('Server Response:', result);
-
-        if (response.ok) {
-          showAlert(true, "upload", result.message || "Upload sukses!");
-          await fetchData();
-        } else {
-          showAlert(false, "upload", result.message || "Upload gagal!");
-        }
-      } catch (err) {
-        console.error('Error saat upload:', err);
-        showAlert(false, "upload", "Terjadi kesalahan saat upload data.");
-      }
-
-
-      // Update frontend table
-      tableData = [...tableData, ...mappedData];
-      filteredData = tableData;
-      currentPage = 1;
-
-      renderTable();
-      renderPagination();
-
-      // Tutup modal
-      const modal = bootstrap.Modal.getInstance(document.getElementById('uploadUrl'));
-      modal.hide();
+      showPreviewRekTable(parsedRekData);
+      const modal = new bootstrap.Modal(document.getElementById("previewRekModal"));
+      modal.show();
     };
 
     reader.readAsArrayBuffer(file);
   });
+
+  function showPreviewRekTable(data) {
+    const container = document.getElementById("previewRekTableContainer");
+    container.innerHTML = "";
+
+    if (data.length === 0) {
+      container.innerHTML = "<p class='text-center'>No data to preview.</p>";
+      return;
+    }
+
+    const table = document.createElement("table");
+    table.className = "table table-bordered table-striped";
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+
+    const headers = Object.keys(data[0]);
+    headers.forEach(header => {
+      const th = document.createElement("th");
+      th.textContent = header;
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    const limitedData = data.slice(0, 5);
+
+    limitedData.forEach(item => {
+      const tr = document.createElement("tr");
+      headers.forEach(header => {
+        const td = document.createElement("td");
+        let value = item[header] || "-";
+
+        if (header.toLowerCase().includes("date")) {
+          const converted = convertExcelSerialDate(item[header]);
+          value = converted ? converted.toLocaleDateString("en-US") : "-";
+        }
+
+        td.textContent = value;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    container.appendChild(table);
+  }
+
+  document.getElementById("confirmRekUploadBtn").addEventListener("click", async function () {
+    if (!parsedRekData || parsedRekData.length === 0) {
+      alert("No data to upload.");
+      return;
+    }
+
+    const mappedData = parsedRekData.map(row => ({
+      url: row.URL || '',
+      bank: row.Bank || '',
+      NoRekening: row['No Rek'] || '',
+      DateFound: row['Date Found'] ? convertExcelSerialDate(row['Date Found']) : null,
+      DateBlocked: row['Date Blocked'] ? convertExcelSerialDate(row['Date Blocked']) : null,
+      StatusRekening: row['Status Rekening'] === "true" || row['Status Rekening'] === true,
+      GambarWeb: row['Gambar Web'] || ''
+    }));
+
+    try {
+      const response = await fetch('/api/rekening/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: mappedData })
+      });
+
+      const result = await response.json();
+
+      const modal = bootstrap.Modal.getInstance(document.getElementById("previewRekModal"));
+      const uploadModal = bootstrap.Modal.getInstance(document.getElementById("uploadRek"));
+      modal.hide();
+      uploadModal.hide();
+
+      if (response.ok) {
+        showAlert(true, "upload", result.message || "Upload sukses!");
+
+        // Load table 
+        fetchTableData();
+
+      } else {
+        showAlert(false, "upload", result.message || "Upload gagal!");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      showAlert(false, "upload", "Terjadi kesalahan saat upload.");
+    }
+  });
+
+
 
   document.getElementById('exportData').addEventListener('click', async function () {
     const exportBtn = document.getElementById('exportData');

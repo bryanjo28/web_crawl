@@ -6,6 +6,8 @@ const mongoose = require('mongoose');
 const UrlModel = require('./models/Url'); // Sesuai dengan nama file 'Url.js'
 const RekModel = require('./models/Rekening');
 const QRISModel = require('./models/Qris');
+const KeyModel = require('./models/Keyword');
+
 const XLSX = require('xlsx');
 
 
@@ -280,15 +282,15 @@ app.post('/api/rekening/bulk', async (req, res) => {
     }
 
     // Ambil semua No Rekening dari data
-    const noRekList = data.map(item => item.noRek);
+    const noRekList = data.map(item => item.NoRekening);
 
     // Cari No Rekening yang sudah ada di database
-    const existingRekening = await RekModel.find({ noRek: { $in: noRekList } }).select('noRek');
+    const existingRekening = await RekModel.find({ NoRekening: { $in: noRekList } }).select('NoRekening');
 
-    const existingNoRekSet = new Set(existingRekening.map(item => item.noRek));
+    const existingNoRekSet = new Set(existingRekening.map(item => item.NoRekening));
 
     // Filter hanya data yang belum ada
-    const dataToInsert = data.filter(item => !existingNoRekSet.has(item.noRek));
+    const dataToInsert = data.filter(item => !existingNoRekSet.has(item.NoRekening));
 
     if (dataToInsert.length === 0) {
       return res.status(409).json({ message: "Semua data yang diupload sudah ada di database." });
@@ -358,7 +360,6 @@ app.get('/api/qris', async (req, res) => {
   }
 });
 
-
 // API: Block QRIS per ID
 app.put('/api/qris/:id/block', async (req, res) => {
   try {
@@ -385,8 +386,6 @@ app.put('/api/qris/:id/block', async (req, res) => {
   }
 });
 
-
-
 app.post('/api/qris/upload', async (req, res) => {
   try {
     const { data } = req.body;
@@ -400,13 +399,13 @@ app.post('/api/qris/upload', async (req, res) => {
       url: (item.url || "").trim(),
       bank: (item.bank || "").trim(),
       NoQRIS: item.NoQRIS,
-      DateFound: item.DateFound  ? new Date(item.DateFound) : null,
-      DateBlocked: item.DateBlocked  ? new Date(item.DateBlocked) : null,
+      DateFound: item.DateFound ? new Date(item.DateFound) : null,
+      DateBlocked: item.DateBlocked ? new Date(item.DateBlocked) : null,
       StatusQRIS: item.StatusQRIS === "Blocked" ? true : item.StatusQRIS === "Active" ? false : Boolean(item.StatusQRIS),
       GambarQRIS: item.GambarQRIS || item.gambarQRIS || ""
     }));
 
-    
+
     // Cek duplikat URL dalam data yang diupload
     const urls = new Set();
     const duplicateUrls = [];
@@ -486,6 +485,128 @@ app.get('/api/qris/export', async (req, res) => {
   } catch (error) {
     console.error("Export error:", error);
     res.status(500).json({ message: "Gagal mengekspor data." });
+  }
+});
+
+// API: Fetch all Keyword data
+app.get('/api/keyword', async (req, res) => {
+  try {
+    const keywordData = await KeyModel.find(); // misal ambil data dari MongoDB
+    res.json(keywordData);
+  } catch (error) {
+    console.error('Error fetching Keyword data:', error);
+    res.status(500).send('Server error');
+  }
+});
+
+// API: Post Keyword data
+app.post("/api/keyword", async (req, res) => {
+  try {
+    const { keyword } = req.body;
+
+    if (!keyword || keyword.trim() === "") {
+      return res.status(400).json({ message: "Keyword tidak boleh kosong." });
+    }
+
+    const trimmedKeyword = keyword.trim();
+
+    // Cek apakah keyword sudah ada di database
+    const existing = await KeyModel.findOne({ keyword: trimmedKeyword });
+    if (existing) {
+      return res.status(409).json({ message: "Keyword sudah ada di database." });
+    }
+
+    const newKeyword = new KeyModel({ keyword: trimmedKeyword });
+    await newKeyword.save();
+
+    res.status(201).json({ message: "Keyword berhasil ditambahkan" });
+  } catch (error) {
+    console.error("Error saat tambah keyword:", error);
+    res.status(500).json({ message: "Gagal menambahkan keyword", error: error.message });
+  }
+});
+
+
+// API: Update keyword by ID
+app.put('/api/keyword/:id', async (req, res) => {
+  try {
+    const { keyword } = req.body;
+    const { id } = req.params;
+
+    if (!keyword || keyword.trim() === "") {
+      return res.status(400).json({ message: "Keyword tidak boleh kosong" });
+    }
+
+    const updated = await KeyModel.findByIdAndUpdate(id, { keyword }, { new: true });
+
+    if (!updated) {
+      return res.status(404).json({ message: "Keyword tidak ditemukan" });
+    }
+
+    res.json({ message: "Keyword berhasil diperbarui", data: updated });
+  } catch (err) {
+    console.error("Error updating keyword:", err);
+    res.status(500).json({ message: "Gagal memperbarui keyword" });
+  }
+});
+
+// API: Delete keyword by ID
+app.delete('/api/keyword/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await KeyModel.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Keyword tidak ditemukan." });
+    }
+
+    res.json({ message: "Keyword berhasil dihapus." });
+  } catch (error) {
+    console.error("Error delete keyword:", error);
+    res.status(500).json({ message: "Gagal menghapus keyword", error: error.message });
+  }
+});
+
+
+// API: Bulk insert Keyword dengan validasi duplicate
+app.post('/api/keyword/bulk', async (req, res) => {
+  try {
+    const { data } = req.body;
+
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ message: "Data harus berupa array" });
+    }
+
+    // Ambil semua No Rekening dari data
+    const keywordList = data.map(item => item.keyword);
+
+    // Cari No Rekening yang sudah ada di database
+    const existingKeyword = await KeyModel.find({ keyword: { $in: keywordList } }).select('keyword');
+
+    const existingKeywordSet = new Set(existingKeyword.map(item => item.keyword));
+
+    // Filter hanya data yang belum ada
+    const dataToInsert = data.filter(item => !existingKeywordSet.has(item.keyword));
+
+    if (dataToInsert.length === 0) {
+      return res.status(409).json({ message: "Keyword sudah ada dalam database." });
+    }
+
+    // Insert yang baru saja
+    const inserted = await KeyModel.insertMany(dataToInsert);
+
+    res.status(201).json({
+      message: "Upload berhasil sebagian/bulk",
+      insertedCount: inserted.length,
+      skippedDuplicates: existingKeyword.length
+    });
+
+  } catch (error) {
+    console.error("Error saat upload keyword:", error);
+    res.status(500).json({
+      message: "Gagal upload data keyword",
+      error: error.message
+    });
   }
 });
 

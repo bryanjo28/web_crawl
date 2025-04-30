@@ -51,7 +51,8 @@
         <!-- Buttons -->
         <div class="row mb-3">
           <div class="col-md-4 d-flex gap-2">
-            <button id="searchButton" type="button" class="btn btn-sm btn-primary"><i class="fa fa-search" aria-hidden="true"></i>
+            <button id="searchButton" type="button" class="btn btn-sm btn-primary"><i class="fa fa-search"
+                aria-hidden="true"></i>
               Search</button>
             <!-- tombol di toolbar -->
             <button id="openUploadBtn" class="btn btn-sm btn-warning">
@@ -63,7 +64,7 @@
                 <i class="fas fa-spinner fa-spin text-secondary ms-2"></i>
               </span>
             </button>
-            
+
 
           </div>
         </div>
@@ -118,16 +119,16 @@
       </div>
 
       <!-- Modal Upload Rekening -->
-      <div class="modal fade" id="uploadUrl" tabindex="-1" aria-labelledby="uploadUrlLabel" aria-hidden="true">
+      <div class="modal fade" id="uploadRek" tabindex="-1" aria-labelledby="uploadRekLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title" id="uploadUrlLabel">Upload Data Rekening</h5>
+              <h5 class="modal-title" id="uploadRekLabel">Upload Data Rekening</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-              <label for="uploadRek" class="col-sm-4 col-form-label">Upload Rekening</label>
-              <input type="file" class="form-control" id="uploadRek">
+              <label for="uploadRekFile" class="col-sm-4 col-form-label">Upload Rekening</label>
+              <input type="file" class="form-control" id="uploadRekFile">
               <span class="formatUpload">format : .xlsx, .csv</span>
             </div>
             <div class="modal-footer">
@@ -137,6 +138,27 @@
           </div>
         </div>
       </div>
+
+      <!-- Modal Preview Rekening -->
+      <div class="modal fade" id="previewRekModal" tabindex="-1" aria-labelledby="previewRekModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="previewRekModalLabel">Preview Upload Data Rekening</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div id="previewRekTableContainer" style="max-height: 400px; overflow-y: auto;"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" id="confirmRekUploadBtn" class="btn btn-primary">Submit Data</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
 
       <!-- Modal Block Rekening -->
       <div class="modal fade" id="blokRekModal" tabindex="-1" aria-labelledby="blokRekModalLabel" aria-hidden="true">
@@ -150,15 +172,14 @@
               <div class="mb-2 row">
                 <label for="noRek" class="col-sm-4 col-form-label">No Rek</label>
                 <div class="col-sm-6 pt-1">
-                  <input type="text" id="noRek" class="form-control form-control-sm" placeholder="123532" disabled>
+                  <input type="text" id="noRek" class="form-control form-control-sm" disabled>
                 </div>
               </div>
               <div class="mb-2 row">
-                <label for="dateBlock" class="col-sm-4 col-form-label">Date Blocked</label>
+                <label for="dateFound" class="col-sm-4 col-form-label">Date Found</label>
                 <div class="col-sm-6 pt-1">
                   <div class="input-group ">
-                    <input type="text" id="dateBlock" class="form-control form-control-sm"
-                      placeholder="3/1/2025 - 3/15/2025" disabled>
+                    <input type="text" id="dateFound" class="form-control form-control-sm" disabled>
                     <span class="input-group-text"><i class="fa fa-calendar" aria-hidden="true"></i></span>
                   </div>
                 </div>
@@ -186,7 +207,7 @@
   <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.min.js"
     integrity="sha384-cuYeSxntonz0PPNlHhBs68uyIAVpIIOZZ5JqeqvYYIcEL727kskC66kF92t6Xl2V"
     crossorigin="anonymous"></script> -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="/static/js/rekening.js"></script>
 </body>
 

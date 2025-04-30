@@ -218,10 +218,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <td>
           <button class="btn btn-sm btn-warning edit-btn" data-id="${item._id}">
             <i class="fa fa-pencil" aria-hidden="true"></i>
-          </button>
-          <button class="btn btn-sm btn-danger delete-btn" data-id="${item._id}">
-            <i class="fa fa-trash" aria-hidden="true"></i>
-          </button>
+          </button>     
         </td>
       `;
       tbody.appendChild(row);
@@ -230,6 +227,9 @@ document.addEventListener('DOMContentLoaded', function () {
     bindActionButtons();
   }
 
+//   <button class="btn btn-sm btn-danger delete-btn" data-id="${item._id}">
+//   <i class="fa fa-trash" aria-hidden="true"></i>
+// </button>
 
   function formatDate(dateStr) {
     if (!dateStr) return '-';
