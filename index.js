@@ -137,48 +137,33 @@ app.post('/api/urls/bulk', async (req, res) => {
       return res.status(400).json({ message: "Data tidak valid" });
     }
 
-    // Normalize and validate the data
-    const normalizedData = data.map(item => {
-      const normalizedItem = {
-        url: (item.url || "").trim(),
-        inputBy: (item.inputBy || "").trim(),
-        flagSystem: item.flagSystem === true || item.flagSystem === false ? item.flagSystem : null,
-        flagUser: item.flagUser === true || item.flagUser === false ? item.flagUser : null,
-        webStatus: (item.webStatus || "").trim(),
-        uid: (item.uid || "").trim(),
-        password: (item.password || "").trim(),
-        firstCrawl: item.firstCrawl ? new Date(item.firstCrawl) : null,
-        lastCrawl: item.lastCrawl ? new Date(item.lastCrawl) : null,
-        lastUpdate: item.lastUpdate ? new Date(item.lastUpdate) : null,
-        crawlStatus: item.crawlStatus === true || item.crawlStatus === false ? item.crawlStatus : null
-      };
+    const operations = data.map(item => ({
+      updateOne: {
+        filter: { url: item.url },
+        update: {
+          $set: {
+            inputBy: item.inputBy || "User",
+            flagSystem: item.flagSystem ?? false,
+            flagUser: item.flagUser ?? false,
+            webStatus: item.webStatus || "Active",
+            uid: item.uid || "",
+            password: item.password || "",
+            firstCrawl: item.firstCrawl ? new Date(item.firstCrawl) : null,
+            lastCrawl: item.lastCrawl ? new Date(item.lastCrawl) : null, 
+            lastUpdate: item.lastUpdate ? new Date(item.lastUpdate) : new Date(),
+            crawlStatus: item.crawlStatus ?? false,
+          }
+        },
+        upsert: true
+      }
+    }));
 
-      console.log("Normalized Item:", normalizedItem); // Log the normalized item
-      return normalizedItem;
-    });
-
-    // Extract all URLs from the normalized data
-    const urls = normalizedData.map(item => item.url);
-
-    // Check for duplicate URLs in the database
-    const existingUrls = await UrlModel.find({ url: { $in: urls } }).select('url');
-    const existingUrlsSet = new Set(existingUrls.map(item => item.url));
-
-    // Find duplicate URLs in the uploaded data
-    const duplicateUrls = urls.filter(url => existingUrlsSet.has(url));
-
-    if (duplicateUrls.length > 0) {
-      return res.status(400).json({
-        message: `These URLs already exist in the database: ${duplicateUrls.join(", ")}`
-      });
-    }
-
-    // Insert unique URLs into the database
-    await UrlModel.insertMany(normalizedData);
+    const result = await UrlModel.bulkWrite(operations);
 
     res.status(201).json({
-      message: "Upload berhasil sebagian/bulk",
-      insertedCount: normalizedData.length, // Number of successfully inserted records
+      message: `Upload selesai. ${result.upsertedCount} baru, ${result.modifiedCount} diperbarui.`,
+      insertedCount: result.upsertedCount,
+      updatedCount: result.modifiedCount
     });
 
   } catch (err) {
@@ -189,6 +174,7 @@ app.post('/api/urls/bulk', async (req, res) => {
     });
   }
 });
+
 
 // API Export URL ke Excel
 app.get('/api/url/export', async (req, res) => {

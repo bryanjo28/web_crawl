@@ -48,15 +48,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const uid = document.getElementById("addUid").value.trim();
     const password = document.getElementById("password").value.trim();
 
-    if (!url || !uid || !password) {
+    if (!url) {
       showAlert(false, "add"); // tampilkan alert gagal
       return;
     }
 
     const newData = {
       url,
-      uid,
-      password,
+      uid: uid || "",          // kosongkan jika tidak diisi
+      password: password || "",
       inputBy: "User",
       flagSystem: null,
       flagUser: true,
@@ -227,9 +227,9 @@ document.addEventListener('DOMContentLoaded', function () {
     bindActionButtons();
   }
 
-//   <button class="btn btn-sm btn-danger delete-btn" data-id="${item._id}">
-//   <i class="fa fa-trash" aria-hidden="true"></i>
-// </button>
+  //   <button class="btn btn-sm btn-danger delete-btn" data-id="${item._id}">
+  //   <i class="fa fa-trash" aria-hidden="true"></i>
+  // </button>
 
   function formatDate(dateStr) {
     if (!dateStr) return '-';
@@ -351,9 +351,17 @@ document.addEventListener('DOMContentLoaded', function () {
         return true;
       })();
 
-      const classificationMatch = !classification || item.flagUser === classification;
+      const classificationMatch = !classification || (
+        (classification === "Y" && item.flagUser === true) ||
+        (classification === "N" && item.flagUser === false)
+      );
+      
       const webStatusMatch = !webStatus || item.webStatus === webStatus;
-      const uidMatchSelect = !uid || item.uid === uid;
+      const uidMatchSelect =
+        !uid || 
+        (uid === "Registered" && item.uid && item.uid.trim() !== "") ||
+        (uid === "Unregistered" && (!item.uid || item.uid.trim() === ""));
+
 
       let dateMatch = true;
       if (startDate && endDate) {
@@ -670,32 +678,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
       // Hide the loading spinner
       document.getElementById("exportLoading").style.display = "none";
+      const modal = bootstrap.Modal.getInstance(document.getElementById("previewModal"));
+      const uploadModal = bootstrap.Modal.getInstance(document.getElementById("uploadUrl"));
+      modal.hide();
+      uploadModal.hide();
 
       // Check if the upload was successful
       if (response.ok) {
-        const previewModal = bootstrap.Modal.getInstance(document.getElementById("previewModal"));
-        const uploadModal = bootstrap.Modal.getInstance(document.getElementById("uploadUrl"));
-
-        if (uploadModal) {
-          uploadModal.hide();
-        }
-
-        if (previewModal) {
-          previewModal.hide();
-        }
 
         showAlert(true, "upload", result.message || "Upload successful");
         // Optionally, you can reload the data or refresh the view after upload
 
         await fetchData();
       } else {
-        if (uploadModal) {
-          uploadModal.hide();
-        }
-
-        if (previewModal) {
-          previewModal.hide();
-        }
 
         showAlert(false, "upload", result.message || "Failed to upload data");
       }
