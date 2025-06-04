@@ -129,48 +129,51 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Populate table berdasarkan page
   function populateTable() {
-    const tbody = document.querySelector("table tbody");
-    tbody.innerHTML = "";
+  const tbody = document.querySelector("table tbody");
+  tbody.innerHTML = "";
 
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const pageItems = filteredData.slice(startIndex, endIndex);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const pageItems = filteredData.slice(startIndex, endIndex);
 
-    if (pageItems.length === 0) {
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td colspan="12" class="text-center text-muted">No matching records found</td>
-      `;
-      tbody.appendChild(row);
-      return; // langsung berhenti di sini kalau kosong
-    }
-
-    pageItems.forEach((item, index) => {
-      const isBlocked = item.StatusRekening === false ? false : true; // jika false berarti belum blocked
-
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${startIndex + index + 1}</td>
-        <td><a href="${item.url}" target="_blank">${item.url}</a></td>
-        <td>${item.bank}</td>
-        <td>${item.NoRekening}</td>
-        <td>${new Date(item.DateFound).toLocaleDateString('en-US')}</td>
-        <td>${item.DateBlocked ? new Date(item.DateBlocked).toLocaleDateString('en-US') : '-'}</td>
-        <td>${isBlocked ? "Blocked" : "Active"}</td>
-        <td>-</td>
-        <td>
-          ${!isBlocked ?
-          `<button class="btn btn-sm btn-danger delete-btn" data-id="${item._id}">
-              <i class="fa fa-ban" aria-hidden="true"></i>
-            </button>` : ''}
-        </td>
-      `;
-      tbody.appendChild(row);
-    });
-
-    bindActionButtons();
+  if (pageItems.length === 0) {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td colspan="12" class="text-center text-muted">No matching records found</td>
+    `;
+    tbody.appendChild(row);
     updatePaginationControls();
+    return;
   }
+
+  pageItems.forEach((item, index) => {
+    const isBlocked = item.StatusRekening === false ? false : true;
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${startIndex + index + 1}</td>
+      <td><a href="#" class="preview-rek-link" data-id="${item._id}">${item.url}</a></td>
+      <td>${item.bank}</td>
+      <td>${item.NoRekening}</td>
+      <td>${new Date(item.DateFound).toLocaleDateString('en-US')}</td>
+      <td>${item.DateBlocked ? new Date(item.DateBlocked).toLocaleDateString('en-US') : '-'}</td>
+      <td>${isBlocked ? "Blocked" : "Active"}</td>
+      <td>-</td>
+      <td>
+        ${!isBlocked ? `
+          <button class="btn btn-sm btn-danger delete-btn" data-id="${item._id}">
+            <i class="fa fa-ban" aria-hidden="true"></i>
+          </button>` : ''}
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+
+  bindActionButtons();
+  bindPreviewModal(); // ✅ Tambahkan ini di akhir agar selalu dipanggil
+  updatePaginationControls();
+}
+
 
   // Handle tombol di table
   function bindActionButtons() {
@@ -186,6 +189,35 @@ document.addEventListener("DOMContentLoaded", function () {
           const blockModalInstance = new bootstrap.Modal(document.getElementById("blokRekModal"));
           blockModalInstance.show();
         }
+      });
+    });
+  }
+
+  function bindPreviewModal() {
+    document.querySelectorAll(".preview-rek-link").forEach(link => {
+      link.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        const id = this.dataset.id;
+        const item = tableData.find(d => d._id === id);
+        if (!item) return;
+
+        // Isi konten modal
+        document.getElementById("urlQris").innerHTML = item.url
+          ? `<a href="${item.url}" target="_blank">${item.url}</a>` : "-";
+        document.getElementById("namaBank").textContent = item.bank || "-";
+        document.getElementById("previewRek").textContent = item.NoRekening || "-";
+        document.getElementById("statusRek").textContent = item.StatusRekening === true ? "Blocked" : "Active";
+
+        const imageContainer = document.getElementById("urlImagePreview");
+        if (item.GambarWeb && item.GambarWeb.startsWith("data:image")) {
+          imageContainer.innerHTML = `<img src="${item.GambarWeb}" class="img-fluid rounded border" alt="Preview Image">`;
+        } else {
+          imageContainer.innerHTML = `<p class="text-muted">No image available</p>`;
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById("previewUrl"));
+        modal.show();
       });
     });
   }

@@ -7,7 +7,7 @@ const rekSchema = new mongoose.Schema({
   DateFound: Date,
   DateBlocked: Date,
   StatusRekening: Boolean,
-  GambarWeb: String
+  GambarWeb: Buffer
 
 });
 

@@ -215,11 +215,24 @@ app.get('/api/url/export', async (req, res) => {
 app.get('/api/rekening', async (req, res) => {
   try {
     const data = await RekModel.find();
-    res.json(data);
+
+    // Konversi buffer GambarWeb ke base64 string
+    const formatted = data.map(item => {
+      const plain = item.toObject();
+      if (plain.GambarWeb && plain.GambarWeb.buffer) {
+        plain.GambarWeb = `data:image/png;base64,${plain.GambarWeb.buffer.toString("base64")}`;
+      } else {
+        plain.GambarWeb = null;
+      }
+      return plain;
+    });
+
+    res.json(formatted);
   } catch (err) {
     res.status(500).json({ message: 'Error ambil data', error: err });
   }
 });
+
 
 // Update Rekening Status by ID (block)
 app.put('/api/rekening/:id', async (req, res) => {
