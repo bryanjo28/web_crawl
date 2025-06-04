@@ -630,6 +630,6 @@ function formatDateExport(date) {
 }
 
 // Jalankan server
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`Server berjalan di http://localhost:${port}`);
 });
