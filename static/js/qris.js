@@ -33,6 +33,8 @@ document.addEventListener("DOMContentLoaded", function () {
     .catch((error) => console.log("Error loading the navbar:", error));
 
   const uploadModal = new bootstrap.Modal(document.getElementById("uploadUrl"));
+
+
   document
     .getElementById("openUploadBtn")
     .addEventListener("click", () => uploadModal.show());
@@ -165,7 +167,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       row.innerHTML = `
         <td>${startIndex + index + 1}</td>
-        <td><a href="#">${item.url}</a></td>
+        <td><a href="#" class="preview-link" data-id="${item._id}">${item.url}</a></td>
         <td>${item.bank}</td>
         <td>${item.NoQRIS}</td>
         <td>${new Date(item.DateFound).toLocaleDateString("en-US")}</td>
@@ -189,6 +191,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     bindActionButtons();
+    previewQrisModal();
     updatePaginationControls();
   }
 
@@ -228,8 +231,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if (prevButton) {
       prevButton.disabled = currentPage === 1;
       prevButton.className = `btn btn-sm mx-1 ${currentPage === 1
-          ? "btn-outline-secondary disabled"
-          : "btn-outline-primary"
+        ? "btn-outline-secondary disabled"
+        : "btn-outline-primary"
         }`;
       prevButton.onclick = () => {
         if (currentPage > 1) {
@@ -242,8 +245,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if (nextButton) {
       nextButton.disabled = currentPage === totalPages;
       nextButton.className = `btn btn-sm mx-1 ${currentPage === totalPages
-          ? "btn-outline-secondary disabled"
-          : "btn-outline-primary"
+        ? "btn-outline-secondary disabled"
+        : "btn-outline-primary"
         }`;
       nextButton.onclick = () => {
         if (currentPage < totalPages) {
@@ -354,6 +357,50 @@ document.addEventListener("DOMContentLoaded", function () {
     populateTable(filteredData); // Populate table dengan data yang sudah difilter
     updatePaginationControls(); // Update pagination info
   }
+
+  // Fungsi untuk preview Qris Modal
+  function previewQrisModal() {
+    document.querySelectorAll(".preview-link").forEach(link => {
+      link.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        const id = this.dataset.id;
+        const selectedItem = filteredData.find(d => d._id === id);
+        if (!selectedItem) return;
+
+        document.getElementById("urlQris").innerHTML = selectedItem.url
+          ? `<a href="${selectedItem.url}" target="_blank">${selectedItem.url}</a>`
+          : "-";
+        document.getElementById("bankQris").value = selectedItem.bank || "-";
+        document.getElementById("noQris2").value = selectedItem.NoQRIS || "-";
+        document.getElementById("dateFoundQris").value = selectedItem.DateFound
+          ? new Date(selectedItem.DateFound).toLocaleDateString("en-US")
+          : "-";
+        document.getElementById("dateBlockedQris").value = selectedItem.DateBlocked
+          ? new Date(selectedItem.DateBlocked).toLocaleDateString("en-US")
+          : "-";
+        document.getElementById("statusQris").value =
+          selectedItem.StatusQRIS === true
+            ? "Blocked"
+            : selectedItem.StatusQRIS === false
+              ? "Active"
+              : "-";
+
+        // Render base64 image
+        const imageContainer = document.getElementById("qrisImagePreview");
+        if (selectedItem.GambarQRIS && selectedItem.GambarQRIS.startsWith("data:image")) {
+          imageContainer.innerHTML = `<img src="${selectedItem.GambarQRIS}" class="img-fluid rounded border" alt="QRIS Preview">`;
+        } else {
+          imageContainer.innerHTML = `<p class="text-muted">No image available</p>`;
+        }
+        console.log(selectedItem.GambarQRIS);
+
+        const modal = new bootstrap.Modal(document.getElementById("previewQris"));
+        modal.show();
+      });
+    });
+  }
+
 
   document.querySelector(".resetButton").addEventListener("click", function () {
     // Kosongkan input search, date-blocked, dan bank
@@ -546,7 +593,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (previewModal) {
           previewModal.hide();
         }
-        
+
         showAlert(true, "upload", result.message || "Upload successful");
 
       } else {

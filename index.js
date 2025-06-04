@@ -338,13 +338,25 @@ app.get('/api/rekening/export', async (req, res) => {
 // API: Fetch all QRIS data
 app.get('/api/qris', async (req, res) => {
   try {
-    const qrisData = await QRISModel.find(); // misal ambil data dari MongoDB
-    res.json(qrisData);
+    const qrisList = await QRISModel.find();
+
+    const result = qrisList.map(item => {
+      const plain = item.toObject();
+      if (plain.GambarQRIS && plain.GambarQRIS.buffer) {
+        plain.GambarQRIS = `data:image/png;base64,${plain.GambarQRIS.buffer.toString("base64")}`;
+      } else {
+        plain.GambarQRIS = null;
+      }
+      return plain;
+    });
+
+    res.json(result);
   } catch (error) {
-    console.error('Error fetching QRIS data:', error);
-    res.status(500).send('Server error');
+    console.error("Error fetching QRIS data:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // API: Block QRIS per ID
 app.put('/api/qris/:id/block', async (req, res) => {

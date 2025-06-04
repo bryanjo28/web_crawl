@@ -8,7 +8,7 @@ const qrisSchema = new mongoose.Schema({
   DateFound: Date,
   DateBlocked: Date,
   StatusQRIS: Boolean,
-  GambarQRIS: String, // Menyimpan gambar sebagai Base64 string
+  GambarQRIS: Buffer, // Menyimpan gambar sebagai Base64 string
 });
 
 // Model untuk QRIS
