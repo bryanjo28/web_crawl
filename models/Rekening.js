@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const rekSchema = new mongoose.Schema({
   url: String,
   bank: String,
-  NoRekening: Number,
+  NoRekening: String,
   DateFound: Date,
   DateBlocked: Date,
   StatusRekening: Boolean,

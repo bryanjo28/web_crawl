@@ -170,11 +170,8 @@ document.addEventListener("DOMContentLoaded", function () {
         <td><a href="#" class="preview-link" data-id="${item._id}">${item.url}</a></td>
         <td>${item.bank}</td>
         <td>${item.NoQRIS}</td>
-        <td>${new Date(item.DateFound).toLocaleDateString("en-US")}</td>
-        <td>${item.DateBlocked
-          ? new Date(item.DateBlocked).toLocaleDateString("en-US")
-          : "-"
-        }</td>
+        <td>${item.DateFound ? new Date(item.DateFound).toLocaleDateString("en-US") : "-"}</td>
+        <td>${item.DateBlocked ? new Date(item.DateBlocked).toLocaleDateString("en-US") : "-"}</td>
         <td>${isBlocked ? "Blocked" : "Active"}</td>
         <td>${item.directory || "-"}</td>
         <td>
@@ -478,11 +475,50 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   // Fungsi untuk mengonversi Excel serial date ke format JavaScript Date
-  function convertExcelSerialDate(serialDate) {
-    if (!serialDate || serialDate === "null") return null; // Jika kosong atau "null" sebagai string, set ke null
-    const date = new Date((serialDate - 25569) * 86400 * 1000); // Konversi serial date ke format tanggal
-    return isNaN(date.getTime()) ? null : date; // Jika tidak valid, kembalikan null
+  function convertExcelSerialDate(value) {
+    if (!value || value === "null" || isNaN(value)) return null;
+    if (typeof value === "string") value = parseFloat(value);
+    // Excel date serial starts at 1900-01-01
+    return new Date(Math.round((value - 25569) * 86400 * 1000));
   }
+
+  function normalizeStatusQRIS(value) {
+    if (!value) return false; // Default Active
+    const val = String(value).trim().toLowerCase();
+    if (val === "blocked" || val === "true" || val === "y" || val === "yes") return true;
+    if (val === "active" || val === "false" || val === "n" || val === "no") return false;
+    return false;
+  }
+
+  function normalizeHeader(item, ...possibleKeys) {
+    const keysInItem = Object.keys(item);
+    for (const expected of possibleKeys) {
+      const expectedNormalized = expected.replace(/\s+/g, '').toLowerCase();
+      for (const actual of keysInItem) {
+        const actualNormalized = actual.replace(/\s+/g, '').toLowerCase();
+        if (expectedNormalized === actualNormalized && item[actual] != null) {
+          return String(item[actual]).trim();
+        }
+      }
+    }
+    return "";
+  }
+
+  function parseDateField(value) {
+    if (!value || value === '-' || value.toString().trim().toLowerCase() === 'null') {
+      return null;
+    }
+
+    // Excel serial date? (typical 5-digit numbers)
+    if (!isNaN(value) && Number(value) > 20000 && Number(value) < 50000) {
+      return convertExcelSerialDate(Number(value));
+    }
+
+    // Try normal date string
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
 
   // Fungsi untuk menampilkan data preview yang dibatasi hanya 5 teratas
   function showPreviewTable(data) {
@@ -497,12 +533,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const table = document.createElement("table");
     table.className = "table table-bordered table-striped";
 
-    // Table Header
+    // Header
     const thead = document.createElement("thead");
     const headerRow = document.createElement("tr");
-
     const headers = Object.keys(data[0]);
-    headers.forEach((header) => {
+
+    headers.forEach(header => {
       const th = document.createElement("th");
       th.textContent = header;
       headerRow.appendChild(th);
@@ -510,26 +546,21 @@ document.addEventListener("DOMContentLoaded", function () {
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
-    // Table Body
+    // Body
     const tbody = document.createElement("tbody");
-
-    // Limiting to 5 rows
     const limitedData = data.slice(0, 5);
 
-    limitedData.forEach((item) => {
+    limitedData.forEach(item => {
       const tr = document.createElement("tr");
-      headers.forEach((header) => {
+      headers.forEach(header => {
         const td = document.createElement("td");
         let value = item[header] || "-";
 
-        // Mengonversi serial date menjadi tanggal yang benar jika field adalah DateFound atau DateBlocked
-        if (header === "Date Found" || header === "Date Blocked") {
-          value = convertExcelSerialDate(item[header]);
-          if (value) {
-            value = value.toLocaleDateString("en-US"); // Format tanggal dengan Locale
-          } else {
-            value = "-"; // Jika tidak ada tanggal valid, tampilkan '-'
-          }
+        // Detect flexible date columns
+        const lowerHeader = header.replace(/\s+/g, '').toLowerCase();
+        if (lowerHeader.includes("datefound") || lowerHeader.includes("dateblocked") || lowerHeader.includes("dateblock")) {
+          const parsedDate = parseDateField(item[header]);
+          value = parsedDate ? parsedDate.toISOString().split("T")[0] : "-";
         }
 
         td.textContent = value;
@@ -537,16 +568,15 @@ document.addEventListener("DOMContentLoaded", function () {
       });
       tbody.appendChild(tr);
     });
-    table.appendChild(tbody);
 
+    table.appendChild(tbody);
     container.appendChild(table);
 
-    // Tampilkan modal preview
-    const previewModal = new bootstrap.Modal(
-      document.getElementById("previewModal")
-    );
+    // Show modal
+    const previewModal = new bootstrap.Modal(document.getElementById("previewModal"));
     previewModal.show();
   }
+
 
   // Saat tombol Confirm di klik, kirim data ke server
   document.getElementById("confirmUploadBtn").addEventListener("click", async function () {
@@ -557,13 +587,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Format data before sending to the backend
     const formattedData = parsedExcelData.map(item => ({
-      url: item.URL || "", // Assuming 'URL' column in Excel
-      bank: item.Bank || "", // Assuming 'Bank' column in Excel
-      NoQRIS: item['No QRIS'] || "", // Assuming 'No QRIS' column in Excel
-      DateFound: item['Date Found'] ? convertExcelSerialDate(item['Date Found']) : null, // Convert serial date for 'Date Found'
-      DateBlocked: item['Date Blocked'] && item['Date Blocked'] !== 'NULL' ? convertExcelSerialDate(item['Date Blocked']) : null, // Convert serial date for 'Date Blocked'
-      StatusQris: item['Status QRIS'] === 'TRUE', // Convert 'Status QRIS' to boolean (TRUE => true, FALSE => false)
-      GambarQris: item['Gambar QRIS'] || "", // Assuming 'Gambar QRIS' column in Excel (Base64 string)
+      url: normalizeHeader(item, "URL"),
+      bank: normalizeHeader(item, "Bank"),
+      NoQRIS: normalizeHeader(item, "No QRIS", "NoQRIS"),
+      DateFound: parseDateField(normalizeHeader(item, "Date Found", "DateFound")),
+      DateBlocked: parseDateField(normalizeHeader(item, "Date Blocked", "DateBlocked", "DateBlock")),
+      StatusQRIS: normalizeStatusQRIS(normalizeHeader(item, "Status QRIS", "StatusQRIS"))
     }));
 
     // Log formatted data before sending it to the backend
@@ -594,7 +623,12 @@ document.addEventListener("DOMContentLoaded", function () {
           previewModal.hide();
         }
 
-        showAlert(true, "upload", result.message || "Upload successful");
+        setTimeout(() => {
+          fetchData();; // refresh table
+          showAlert(true, "upload", result.message || "Upload successful");
+        }, 500);
+
+
 
       } else {
         const invalidUrls = result.message.split(","); // Misalnya, menganggap server mengirimkan URL yang tidak valid sebagai array

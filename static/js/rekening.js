@@ -129,36 +129,35 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Populate table berdasarkan page
   function populateTable() {
-  const tbody = document.querySelector("table tbody");
-  tbody.innerHTML = "";
+    const tbody = document.querySelector("table tbody");
+    tbody.innerHTML = "";
 
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const pageItems = filteredData.slice(startIndex, endIndex);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const pageItems = filteredData.slice(startIndex, endIndex);
 
-  if (pageItems.length === 0) {
-    const row = document.createElement("tr");
-    row.innerHTML = `
+    if (pageItems.length === 0) {
+      const row = document.createElement("tr");
+      row.innerHTML = `
       <td colspan="12" class="text-center text-muted">No matching records found</td>
     `;
-    tbody.appendChild(row);
-    updatePaginationControls();
-    return;
-  }
+      tbody.appendChild(row);
+      updatePaginationControls();
+      return;
+    }
 
-  pageItems.forEach((item, index) => {
-    const isBlocked = item.StatusRekening === false ? false : true;
+    pageItems.forEach((item, index) => {
+      const isBlocked = item.StatusRekening === false ? false : true;
 
-    const row = document.createElement("tr");
-    row.innerHTML = `
+      const row = document.createElement("tr");
+      row.innerHTML = `
       <td>${startIndex + index + 1}</td>
       <td><a href="#" class="preview-rek-link" data-id="${item._id}">${item.url}</a></td>
       <td>${item.bank}</td>
-      <td>${item.NoRekening}</td>
+      <td>${item.NoRekening != null ? item.NoRekening : '-'}</td>
       <td>${new Date(item.DateFound).toLocaleDateString('en-US')}</td>
       <td>${item.DateBlocked ? new Date(item.DateBlocked).toLocaleDateString('en-US') : '-'}</td>
       <td>${isBlocked ? "Blocked" : "Active"}</td>
-      <td>-</td>
       <td>
         ${!isBlocked ? `
           <button class="btn btn-sm btn-danger delete-btn" data-id="${item._id}">
@@ -166,13 +165,13 @@ document.addEventListener("DOMContentLoaded", function () {
           </button>` : ''}
       </td>
     `;
-    tbody.appendChild(row);
-  });
+      tbody.appendChild(row);
+    });
 
-  bindActionButtons();
-  bindPreviewModal(); // ✅ Tambahkan ini di akhir agar selalu dipanggil
-  updatePaginationControls();
-}
+    bindActionButtons();
+    bindPreviewModal(); // ✅ Tambahkan ini di akhir agar selalu dipanggil
+    updatePaginationControls();
+  }
 
 
   // Handle tombol di table
@@ -222,40 +221,22 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // Pagination Controls
   function updatePaginationControls() {
-    const totalPages = Math.max(1, Math.ceil(filteredData.length / itemsPerPage)); // MINIMAL 1
+    const totalPages = Math.max(1, Math.ceil(filteredData.length / itemsPerPage));
 
-    const paginationInfo = document.getElementById("pagination-info");
-    if (paginationInfo) {
-      paginationInfo.textContent = `Page ${currentPage} of ${totalPages}`;
-    }
+    // Correct page if out of bounds
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
 
-    const prevButton = document.getElementById("prev-page");
-    const nextButton = document.getElementById("next-page");
+    document.getElementById("pagination-info").textContent = `Page ${currentPage} of ${totalPages}`;
 
-    if (prevButton) {
-      prevButton.disabled = currentPage === 1;
-      prevButton.className = `btn btn-sm mx-1 ${currentPage === 1 ? 'btn-outline-secondary disabled' : 'btn-outline-primary'}`;
-      prevButton.onclick = () => {
-        if (currentPage > 1) {
-          currentPage--;
-          populateTable();
-        }
-      };
-    }
-
-    if (nextButton) {
-      nextButton.disabled = currentPage === totalPages;
-      nextButton.className = `btn btn-sm mx-1 ${currentPage === totalPages ? 'btn-outline-secondary disabled' : 'btn-outline-primary'}`;
-      nextButton.onclick = () => {
-        if (currentPage < totalPages) {
-          currentPage++;
-          populateTable();
-        }
-      };
-    }
+    // Disable/enable buttons
+    document.getElementById("prev-page").disabled = (currentPage === 1);
+    document.getElementById("next-page").disabled = (currentPage === totalPages);
   }
+
+
+
 
   function applyFilter() {
     const searchValue = document.getElementById("search").value.trim().toLowerCase();
@@ -345,7 +326,7 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   document.getElementById("next-page").addEventListener("click", () => {
-    const totalPages = Math.ceil(tableData.length / itemsPerPage);
+    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
     if (currentPage < totalPages) {
       currentPage++;
       populateTable();
@@ -387,6 +368,25 @@ document.addEventListener("DOMContentLoaded", function () {
     return isNaN(date.getTime()) ? null : date;
   }
 
+  function parseDateField(value) {
+    if (!value) return null;
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '' || trimmed.toUpperCase() === 'N/A' || trimmed === '-') {
+        return null;
+      }
+    }
+
+    // Excel serial date? Try converting
+    if (!isNaN(value) && Number(value) > 20000 && Number(value) < 50000) {
+      return convertExcelSerialDate(Number(value));
+    }
+
+    // ISO or normal string date
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
 
   document.getElementById('submitRek').addEventListener('click', function () {
     const fileInput = document.getElementById('uploadRekFile');
@@ -445,18 +445,45 @@ document.addEventListener("DOMContentLoaded", function () {
 
     limitedData.forEach(item => {
       const tr = document.createElement("tr");
+
       headers.forEach(header => {
         const td = document.createElement("td");
-        let value = item[header] || "-";
+        let rawValue = item[header];
+        let value = "-";
 
         if (header.toLowerCase().includes("date")) {
-          const converted = convertExcelSerialDate(item[header]);
-          value = converted ? converted.toLocaleDateString("en-US") : "-";
+          if (!rawValue || rawValue === "") {
+            value = "-";
+          }
+          else if (!isNaN(rawValue) && Number(rawValue) > 20000 && Number(rawValue) < 50000) {
+            const convertedDate = convertExcelSerialDate(Number(rawValue));
+            value = convertedDate ? convertedDate.toISOString().split('T')[0] : "-";
+          }
+          else {
+            const parsedDate = new Date(rawValue);
+            if (!isNaN(parsedDate.getTime())) {
+              value = parsedDate.toISOString().split('T')[0];
+            } else {
+              value = rawValue;
+            }
+          }
+        } else if (header.toLowerCase().includes("status")) {
+          const val = String(rawValue || "").trim().toUpperCase();
+          if (val === "BLOCKED" || val === "TRUE" || val === "Y" || val === "YES") {
+            value = "Blocked";
+          } else if (val === "ACTIVE" || val === "FALSE" || val === "N" || val === "NO") {
+            value = "Active";
+          } else {
+            value = "-";
+          }
+        } else {
+          value = rawValue || "-";
         }
 
         td.textContent = value;
         tr.appendChild(td);
       });
+
       tbody.appendChild(tr);
     });
 
@@ -464,20 +491,53 @@ document.addEventListener("DOMContentLoaded", function () {
     container.appendChild(table);
   }
 
+  function normalizeHeader(item, ...possibleKeys) {
+    const keysInItem = Object.keys(item);
+
+    for (const expected of possibleKeys) {
+      const expectedNormalized = expected.replace(/\s+/g, '').toLowerCase();
+
+      for (const actual of keysInItem) {
+        const actualNormalized = actual.replace(/\s+/g, '').toLowerCase();
+        if (expectedNormalized === actualNormalized && item[actual] != null) {
+          return String(item[actual]).trim();
+        }
+      }
+    }
+    return "";
+  }
+
+  function mapStatusRekening(value) {
+    if (!value) return false;  // Default Active
+
+    const val = String(value).trim().toLowerCase();
+
+    if (val === "blocked") return true;
+    if (val === "active") return false;
+
+    if (val === "y" || val === "yes" || val === "true") return true;
+    if (val === "n" || val === "no" || val === "false") return false;
+
+    return false;
+  }
+
+
+
   document.getElementById("confirmRekUploadBtn").addEventListener("click", async function () {
     if (!parsedRekData || parsedRekData.length === 0) {
       alert("No data to upload.");
       return;
     }
 
+
     const mappedData = parsedRekData.map(row => ({
-      url: row.URL || '',
-      bank: row.Bank || '',
-      NoRekening: row['No Rek'] || '',
-      DateFound: row['Date Found'] ? convertExcelSerialDate(row['Date Found']) : null,
-      DateBlocked: row['Date Blocked'] ? convertExcelSerialDate(row['Date Blocked']) : null,
-      StatusRekening: row['Status Rekening'] === "true" || row['Status Rekening'] === true,
-      GambarWeb: row['Gambar Web'] || ''
+      url: normalizeHeader(row, "URL"),
+      bank: normalizeHeader(row, "Bank"),
+      NoRekening: normalizeHeader(row, "No Rek", "No Rekening") || null,
+      DateFound: parseDateField(normalizeHeader(row, "Date Found")),
+      DateBlocked: parseDateField(normalizeHeader(row, "Date Blocked")),
+      StatusRekening: mapStatusRekening(normalizeHeader(row, "Status Rekening")),
+      GambarWeb: normalizeHeader(row, "Gambar Web") || ''
     }));
 
     try {
@@ -497,6 +557,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (response.ok) {
         showAlert(true, "upload", result.message || "Upload sukses!");
 
+        console.log(mappedData);
         // Load table 
         fetchTableData();
 
@@ -508,7 +569,6 @@ document.addEventListener("DOMContentLoaded", function () {
       showAlert(false, "upload", "Terjadi kesalahan saat upload.");
     }
   });
-
 
 
   document.getElementById('exportData').addEventListener('click', async function () {

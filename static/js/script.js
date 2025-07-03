@@ -355,10 +355,10 @@ document.addEventListener('DOMContentLoaded', function () {
         (classification === "Y" && item.flagUser === true) ||
         (classification === "N" && item.flagUser === false)
       );
-      
+
       const webStatusMatch = !webStatus || item.webStatus === webStatus;
       const uidMatchSelect =
-        !uid || 
+        !uid ||
         (uid === "Registered" && item.uid && item.uid.trim() !== "") ||
         (uid === "Unregistered" && (!item.uid || item.uid.trim() === ""));
 
@@ -526,16 +526,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Fungsi untuk mengonversi Excel serial date ke format JavaScript Date
   function convertExcelSerialDate(serialDate) {
-    if (!serialDate || serialDate === "null" || isNaN(serialDate)) return null; // Check for null or invalid date
-
-    // Convert the serial date to JavaScript Date object
+    if (!serialDate || serialDate === "null" || isNaN(serialDate)) return null;
     const date = new Date((serialDate - 25569) * 86400 * 1000);
-
-    // Return the date if valid, otherwise null
     return isNaN(date.getTime()) ? null : date;
   }
 
-  // Fungsi untuk menampilkan data preview yang dibatasi hanya 5 teratas
+
+  function isProbablyExcelSerial(value) {
+    // Angka yang masuk akal untuk serial date (>20000 sekitar 1950 ke atas)
+    return !isNaN(value) && value > 20000 && value < 50000;
+  }
+
+  // Fungsi menampilkan data preview (maksimal 5 baris)
   function showPreviewTable(data) {
     const container = document.getElementById("previewTableContainer");
     container.innerHTML = "";
@@ -548,12 +550,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const table = document.createElement("table");
     table.className = "table table-bordered table-striped";
 
-    // Table Header
+    // Header
     const thead = document.createElement("thead");
     const headerRow = document.createElement("tr");
-
-    // Dynamically creating table headers based on the first row's keys
     const headers = Object.keys(data[0]);
+
     headers.forEach((header) => {
       const th = document.createElement("th");
       th.textContent = header;
@@ -562,44 +563,63 @@ document.addEventListener('DOMContentLoaded', function () {
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
-    // Table Body
+    // Body (5 baris saja)
     const tbody = document.createElement("tbody");
-
-    // Limiting to 5 rows for preview
     const limitedData = data.slice(0, 5);
 
     limitedData.forEach((item) => {
       const tr = document.createElement("tr");
+
       headers.forEach((header) => {
         const td = document.createElement("td");
-        let value = item[header] || "-";
+        let rawValue = item[header];
+        let value = "-";
 
-        // Handle the case where headers like 'First Crawl', 'Last Crawl', and 'Last Update' appear
+        // Kolom tanggal: yang ada kata 'crawl' atau 'update'
         if (
           header.toLowerCase().includes("crawl") ||
           header.toLowerCase().includes("update")
         ) {
-          value = convertExcelSerialDate(item[header]);
-          if (value) {
-            value = value.toLocaleDateString("en-US"); // Format the date properly
-          } else {
-            value = "-"; // If not a valid date, show a dash
+          if (!rawValue || rawValue === "") {
+            value = "-";
           }
+          else if (isProbablyExcelSerial(rawValue)) {
+            // Excel serial number
+            const convertedDate = convertExcelSerialDate(rawValue);
+            value = convertedDate ? convertedDate.toISOString().split('T')[0] : "-";
+          }
+          else {
+            // Coba parse Date object atau ISO string
+            let parsedDate;
+            if (rawValue instanceof Date) {
+              parsedDate = rawValue;
+            } else {
+              parsedDate = new Date(rawValue);
+            }
+
+            value = (!isNaN(parsedDate.getTime())) ? parsedDate.toISOString().split('T')[0] : rawValue;
+          }
+        }
+        else {
+          // Kolom non-date
+          value = rawValue || "-";
         }
 
         td.textContent = value;
         tr.appendChild(td);
       });
+
       tbody.appendChild(tr);
     });
-    table.appendChild(tbody);
 
+    table.appendChild(tbody);
     container.appendChild(table);
 
-    // Show the preview modal
+    // Tampilkan modal
     const previewModal = new bootstrap.Modal(document.getElementById("previewModal"));
     previewModal.show();
   }
+
 
   document.getElementById("submitUrl").addEventListener("click", function () {
     const fileInput = document.getElementById("uploadUrlFile");
@@ -638,6 +658,45 @@ document.addEventListener('DOMContentLoaded', function () {
     reader.readAsArrayBuffer(file);
   });
 
+  const normalizeHeader = (item, ...possibleKeys) => {
+    for (const key of possibleKeys) {
+      if (key in item && item[key] !== undefined && item[key] !== "") {
+        return item[key];
+      }
+    }
+    return "";
+  };
+
+  const mapYN = (val) => {
+    if (!val || val.trim() === "") return undefined;
+    const upper = val.trim().toUpperCase();
+    if (upper === "Y") return true;
+    if (upper === "N") return false;
+    return undefined;
+  };
+
+  function parseDateField(value) {
+    if (!value) return null;
+
+    // Handle teks seperti "N/A", "-"
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '' || trimmed.toUpperCase() === 'N/A' || trimmed === '-') {
+        return null;
+      }
+    }
+
+    // Kalau angka serial Excel
+    if (isProbablyExcelSerial(value)) {
+      return convertExcelSerialDate(value);
+    }
+
+    // String tanggal ISO atau Date
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+
   document.getElementById("confirmUploadBtn").addEventListener("click", async function () {
     // Make sure there is data available
     if (!parsedExcelData || parsedExcelData.length === 0) {
@@ -650,21 +709,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
     try {
       // Prepare data for the request (you may map the data if necessary)
-      const formattedData = parsedExcelData.map(item => ({
-        url: item.URL || "",
-        inputBy: item["Input By"] || "User",
-        flagUser: item["Judul (flagUser)"] === "Y" ? true : false,
-        flagSystem: false, // Assumed value, adjust as needed
-        webStatus: item.Status || "Active",
-        uid: item.UID || "",
-        password: item.Password || "",
-        firstCrawl: item["First Crawl"] ? convertExcelSerialDate(item["First Crawl"]) : null,
-        lastCrawl: item["Last Crawl"] ? convertExcelSerialDate(item["Last Crawl"]) : null,
-        lastUpdate: item.lastUpdate || new Date(), // Make sure the date is valid
-        crawlStatus: item["Crawling Status"] === "Success"
-      }));
+      const formattedData = parsedExcelData.map(item => {
+        return {
+          url: normalizeHeader(item, "URL"),
+          inputBy: normalizeHeader(item, "InputBy", "Input By") || "User",
+
+          flagUser: mapYN(normalizeHeader(item, "FlagUser", "Judul (flagUser)")),
+          flagSystem: mapYN(normalizeHeader(item, "FlagSystem")),
+
+          webStatus: normalizeHeader(item, "WebStatus", "Status") || "Active",
+          uid: normalizeHeader(item, "UID") || "",
+          password: normalizeHeader(item, "Password") || "",
+
+          firstCrawl: parseDateField(normalizeHeader(item, "FirstCrawl", "First Crawl")),
+          lastCrawl: parseDateField(normalizeHeader(item, "LastCrawl", "Last Crawl")),
 
 
+          lastUpdate: new Date(),
+          crawlStatus: normalizeHeader(item, "Crawling Status") === "Success"
+        };
+      });
       // Make the POST request to the server
       const response = await fetch('/api/urls/bulk', {
         method: "POST",
@@ -706,5 +770,6 @@ document.addEventListener('DOMContentLoaded', function () {
   fetchData();
 
   document.querySelector('.btn-primary').addEventListener('click', handleSearch);
+
 
 });

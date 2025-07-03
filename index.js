@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const app = express();
-const port = 3000;
+const port = 80;
 const mongoose = require('mongoose');
 const UrlModel = require('./models/Url'); // Sesuai dengan nama file 'Url.js'
 const RekModel = require('./models/Rekening');
@@ -137,22 +137,29 @@ app.post('/api/urls/bulk', async (req, res) => {
       return res.status(400).json({ message: "Data tidak valid" });
     }
 
+    // Helper untuk build $set only for defined values
+    function buildSetObject(item) {
+      const setObj = {};
+
+      if (item.inputBy) setObj.inputBy = item.inputBy;
+      if (item.flagSystem !== undefined) setObj.flagSystem = item.flagSystem;
+      if (item.flagUser !== undefined) setObj.flagUser = item.flagUser;
+      if (item.webStatus) setObj.webStatus = item.webStatus;
+      if (item.uid !== undefined) setObj.uid = item.uid;
+      if (item.password !== undefined) setObj.password = item.password;
+      if (item.firstCrawl !== undefined) setObj.firstCrawl = item.firstCrawl ? new Date(item.firstCrawl) : null;
+      if (item.lastCrawl !== undefined) setObj.lastCrawl = item.lastCrawl ? new Date(item.lastCrawl) : null;
+      if (item.lastUpdate !== undefined) setObj.lastUpdate = item.lastUpdate ? new Date(item.lastUpdate) : new Date();
+      if (item.crawlStatus !== undefined) setObj.crawlStatus = item.crawlStatus;
+
+      return setObj;
+    }
+
     const operations = data.map(item => ({
       updateOne: {
         filter: { url: item.url },
         update: {
-          $set: {
-            inputBy: item.inputBy || "User",
-            flagSystem: item.flagSystem ?? false,
-            flagUser: item.flagUser ?? false,
-            webStatus: item.webStatus || "Active",
-            uid: item.uid || "",
-            password: item.password || "",
-            firstCrawl: item.firstCrawl ? new Date(item.firstCrawl) : null,
-            lastCrawl: item.lastCrawl ? new Date(item.lastCrawl) : null, 
-            lastUpdate: item.lastUpdate ? new Date(item.lastUpdate) : new Date(),
-            crawlStatus: item.crawlStatus ?? false,
-          }
+          $set: buildSetObject(item)
         },
         upsert: true
       }
@@ -183,18 +190,19 @@ app.get('/api/url/export', async (req, res) => {
 
     // Convert data to worksheet
     const worksheet = XLSX.utils.json_to_sheet(urls.map(url => ({
-      URL: url.url || 'N/A',  // Handle null or undefined
-      InputBy: url.inputBy || 'N/A',
-      FlagSystem: url.flagSystem !== null ? url.flagSystem : 'N/A',  // Handle null
-      FlagUser: url.flagUser !== null ? url.flagUser : 'N/A',  // Handle null
-      WebStatus: url.webStatus || 'N/A',  // Handle null or undefined
-      UID: url.uid || 'N/A',
-      Password: url.password || 'N/A',
-      FirstCrawl: url.firstCrawl ? new Date(url.firstCrawl).toISOString() : 'N/A',
-      LastCrawl: url.lastCrawl ? new Date(url.lastCrawl).toISOString() : 'N/A',
-      LastUpdate: url.lastUpdate ? new Date(url.lastUpdate).toISOString() : 'N/A',
-      CrawlStatus: url.crawlStatus !== null ? url.crawlStatus : 'N/A',  // Handle null
+      URL: url.url || 'N/A',
+      InputBy: url.inputBy || '',
+      FlagSystem: url.flagSystem === true ? 'Y' : url.flagSystem === false ? 'N' : '',
+      FlagUser: url.flagUser === true ? 'Y' : url.flagUser === false ? 'N' : '',
+      WebStatus: url.webStatus || '',
+      UID: url.uid || '',
+      Password: url.password || '',
+      FirstCrawl: url.firstCrawl ? new Date(url.firstCrawl) : '',
+      LastCrawl: url.lastCrawl ? new Date(url.lastCrawl) : '',
+      LastUpdate: url.lastUpdate ? new Date(url.lastUpdate) : '',
+      CrawlStatus: url.crawlStatus !== null ? url.crawlStatus : '',
     })));
+
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'CrawlData');
@@ -271,70 +279,129 @@ app.delete('/api/rekening/:id', async (req, res) => {
   }
 });
 
-// API: Bulk insert Rekening dengan validasi duplicate
+function normalizeNoRekening(noRekening) {
+  if (!noRekening) return null;
+  return noRekening.trim().replace(/\s+/g, ' ');
+}
+function buildSetFields(item) {
+  const setFields = {};
+
+  if ('url' in item) {
+    setFields.url = item.url?.trim() || null;
+  }
+  if ('bank' in item) {
+    setFields.bank = item.bank?.trim() || null;
+  }
+  if ('NoRekening' in item) {
+    const cleaned = normalizeNoRekening(item.NoRekening);
+    setFields.NoRekening = cleaned;
+    setFields.NormalizedNoRekening = cleaned?.toLowerCase();  // For case-insensitive
+  }
+
+  if ('DateFound' in item) {
+    setFields.DateFound = item.DateFound ? new Date(item.DateFound) : null;
+  }
+  if ('DateBlocked' in item) {
+    setFields.DateBlocked = item.DateBlocked ? new Date(item.DateBlocked) : null;
+  }
+  if ('StatusRekening' in item) {
+    setFields.StatusRekening = (typeof item.StatusRekening === 'boolean') ? item.StatusRekening : false;
+  }
+  if ('GambarWeb' in item && item.GambarWeb) {
+    setFields.GambarWeb = item.GambarWeb;
+  }
+
+  return setFields;
+}
+// API: Bulk insert/update Rekening with partial upsert (like /url/bulk)
 app.post('/api/rekening/bulk', async (req, res) => {
   try {
     const { data } = req.body;
-
-    if (!Array.isArray(data)) {
-      return res.status(400).json({ message: "Data harus berupa array" });
+    if (!Array.isArray(data) || data.length === 0) {
+      return res.status(400).json({ message: "Data harus berupa array dan tidak boleh kosong." });
     }
 
-    // Ambil semua No Rekening dari data
-    const noRekList = data.map(item => item.NoRekening);
+    console.log("=== Incoming Data ===", JSON.stringify(data, null, 2));
 
-    // Cari No Rekening yang sudah ada di database
-    const existingRekening = await RekModel.find({ NoRekening: { $in: noRekList } }).select('NoRekening');
+    // 1️⃣ Ambil semua NoRekening dari DB
+    const allExistingDocs = await RekModel.find({}, { NoRekening: 1 }).lean();
+    const existingSet = new Set(
+      allExistingDocs
+        .map(doc => normalizeNoRekening(doc.NoRekening)?.toLowerCase())
+        .filter(v => !!v)
+    );
 
-    const existingNoRekSet = new Set(existingRekening.map(item => item.NoRekening));
+    // 2️⃣ Build bulkOps
+    const bulkOps = data
+      .filter(item => item.NoRekening != null)
+      .map(item => {
+        const normalized = normalizeNoRekening(item.NoRekening);
+        const normalizedLower = normalized?.toLowerCase();
 
-    // Filter hanya data yang belum ada
-    const dataToInsert = data.filter(item => !existingNoRekSet.has(item.NoRekening));
+        if (!normalizedLower) return null;
 
-    if (dataToInsert.length === 0) {
-      return res.status(409).json({ message: "Semua data yang diupload sudah ada di database." });
-    }
+        // 3️⃣ Only build op if new or will update existing
+        if (existingSet.has(normalizedLower)) {
+          console.log(`UPDATE mode for: ${normalized}`);
+        } else {
+          console.log(`INSERT mode for: ${normalized}`);
+          existingSet.add(normalizedLower);  // prevent dupe in same upload
+        }
 
-    // Insert yang baru saja
-    const inserted = await RekModel.insertMany(dataToInsert);
+        return {
+          updateOne: {
+            filter: { NoRekening: normalized },
+            update: { $set: buildSetFields({ ...item, NoRekening: normalized }) },
+            upsert: true
+          }
+        };
+      })
+      .filter(Boolean);
 
-    res.status(201).json({
-      message: "Upload berhasil sebagian/bulk",
-      insertedCount: inserted.length,
-      skippedDuplicates: existingRekening.length
+    console.log("=== Bulk Operations ===", JSON.stringify(bulkOps, null, 2));
+
+    // 4️⃣ Execute
+    const result = await RekModel.bulkWrite(bulkOps);
+    console.log("=== BulkWrite Result ===", result);
+
+    res.status(200).json({
+      message: "Upload dan update data rekening berhasil",
+      insertedCount: result.upsertedCount,
+      modifiedCount: result.modifiedCount,
+      matchedCount: result.matchedCount
     });
-
   } catch (error) {
-    console.error("Error saat upload rekening:", error);
+    console.error("Error saat upload/update rekening:", error);
     res.status(500).json({
-      message: "Gagal upload data rekening",
+      message: "Gagal upload/update data rekening",
       error: error.message
     });
   }
 });
 
+
 // API: Bulk export Rekening
 app.get('/api/rekening/export', async (req, res) => {
   try {
-    const data = await RekModel.find();
+    const data = await RekModel.find().lean();
 
     if (!data || data.length === 0) {
       return res.status(404).json({ message: "Tidak ada data untuk diexport." });
     }
 
+    // Mapping jadi mirip /api/url/export style
     const exportRows = data.map(item => ({
       URL: item.url || '',
       Bank: item.bank || '',
-      'No Rek': item.NoRekening || '',
-      'Date Found': item.DateFound ? formatDateExport(item.DateFound) : '',
-      'Date Blocked': item.DateBlocked ? formatDateExport(item.DateBlocked) : '',
-      'Status Rekening': item.StatusRekening || '',
-      Directory: item.directory || '-',
+      'No Rek': item.NoRekening ?? '',
+      'Date Found': item.DateFound ? new Date(item.DateFound) : '',
+      'Date Blocked': item.DateBlocked ? new Date(item.DateBlocked) : '',
+      'Status Rekening': item.StatusRekening === true ? 'Blocked' : 'Active'
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "RekeningExport");
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'RekeningExport');
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
@@ -343,10 +410,11 @@ app.get('/api/rekening/export', async (req, res) => {
     res.send(buffer);
 
   } catch (error) {
-    console.error('Error saat export rekening:', error); // lihat terminal ini
+    console.error('Error saat export rekening:', error);
     res.status(500).json({ message: "Gagal export data rekening", error: error.message });
   }
 });
+
 
 // API: Fetch all QRIS data
 app.get('/api/qris', async (req, res) => {
@@ -369,7 +437,6 @@ app.get('/api/qris', async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 
 // API: Block QRIS per ID
 app.put('/api/qris/:id/block', async (req, res) => {
@@ -401,103 +468,105 @@ app.post('/api/qris/upload', async (req, res) => {
   try {
     const { data } = req.body;
 
-    if (!Array.isArray(data)) {
-      return res.status(400).json({ message: "Invalid data format." });
+    if (!Array.isArray(data) || data.length === 0) {
+      return res.status(400).json({ message: "Data harus berupa array dan tidak boleh kosong." });
     }
 
-    // Normalisasi field names dan validasi
-    const normalizedData = data.map(item => ({
-      url: (item.url || "").trim(),
-      bank: (item.bank || "").trim(),
-      NoQRIS: item.NoQRIS,
-      DateFound: item.DateFound ? new Date(item.DateFound) : null,
-      DateBlocked: item.DateBlocked ? new Date(item.DateBlocked) : null,
-      StatusQRIS: item.StatusQRIS === "Blocked" ? true : item.StatusQRIS === "Active" ? false : Boolean(item.StatusQRIS),
-      GambarQRIS: item.GambarQRIS || item.gambarQRIS || ""
-    }));
+    // Step 1: Normalisasi
+    const normalizedData = data
+      .map(item => ({
+        url: (item.url || "").trim(),
+        bank: (item.bank || "").trim(),
+        NoQRIS: item.NoQRIS ? String(item.NoQRIS).trim() : "",
+        DateFound: item.DateFound ? new Date(item.DateFound) : null,
+        DateBlocked: item.DateBlocked ? new Date(item.DateBlocked) : null,
+        StatusQRIS: item.StatusQRIS === "Blocked" ? true : item.StatusQRIS === "Active" ? false : Boolean(item.StatusQRIS),
+        GambarQRIS: item.GambarQRIS || item.gambarQRIS || ""
+      }))
+      .filter(item => item.NoQRIS);  // Buang yang NoQRIS kosong
 
+    if (normalizedData.length === 0) {
+      return res.status(400).json({ message: "Semua data tidak memiliki NoQRIS." });
+    }
 
-    // Cek duplikat URL dalam data yang diupload
-    const urls = new Set();
-    const duplicateUrls = [];
-
-    for (const item of normalizedData) {
-      if (urls.has(item.url)) {
-        duplicateUrls.push(item.url); // Simpan URL yang duplikat
-      } else {
-        urls.add(item.url);
+    // Step 2: Buang duplikat di dalam batch itu sendiri
+    const uniqueMap = new Map();
+    normalizedData.forEach(item => {
+      const key = item.NoQRIS.toLowerCase();
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, item);
       }
+    });
+    const uniqueData = Array.from(uniqueMap.values());
+
+    // Step 3: Ambil yang sudah ada di DB
+    const existingDocs = await QRISModel.find({
+      NoQRIS: { $in: uniqueData.map(i => i.NoQRIS) }
+    }, { NoQRIS: 1 });
+
+    const existingSet = new Set(existingDocs.map(doc => doc.NoQRIS.toLowerCase()));
+
+    // Step 4: Filter hanya yang belum ada di DB
+    const toInsert = uniqueData.filter(item => !existingSet.has(item.NoQRIS.toLowerCase()));
+
+    // Step 5: Insert only new
+    if (toInsert.length > 0) {
+      await QRISModel.insertMany(toInsert);
     }
 
-    // Jika ada URL duplikat, kirimkan pesan error
-    if (duplicateUrls.length > 0) {
-      return res.status(400).json({
-        message: `Duplicate URLs found: ${duplicateUrls.join(", ")}`
-      });
-    }
-
-    // Validasi dan pengecekan URL di database
-    const existingUrls = await QRISModel.find({ url: { $in: Array.from(urls) } });
-
-    if (existingUrls.length > 0) {
-      const existingUrlsSet = new Set(existingUrls.map(item => item.url));
-      const duplicateInDb = Array.from(urls).filter(url => existingUrlsSet.has(url));
-
-      if (duplicateInDb.length > 0) {
-        return res.status(400).json({
-          message: `These URLs already exist in the database: ${duplicateInDb.join(", ")}`
-        });
-      }
-    }
-
-    // Insert data ke MongoDB jika tidak ada duplikat
-    await QRISModel.insertMany(normalizedData);
-
-    res.json({ message: "Data uploaded successfully." });
+    // Step 6: Response
+    res.json({
+      message: `Upload selesai. Ditambahkan ${toInsert.length} data baru. ${existingSet.size} sudah ada di database dan diabaikan.`,
+      insertedCount: toInsert.length,
+      skippedCount: existingSet.size
+    });
 
   } catch (error) {
     console.error("Upload error:", error);
-    res.status(500).json({ message: "Server error during upload." });
+    res.status(500).json({ message: "Server error during upload.", error: error.message });
   }
 });
+
 
 // Endpoint untuk ekspor data QRIS ke Excel
 app.get('/api/qris/export', async (req, res) => {
   try {
-    // Mengambil semua data QRIS dari database
-    const qrisData = await QRISModel.find();
+    // Ambil semua data QRIS
+    const qrisData = await QRISModel.find().lean();
 
-    // Menyiapkan data untuk worksheet
+    if (!qrisData || qrisData.length === 0) {
+      return res.status(404).json({ message: "Tidak ada data untuk diekspor." });
+    }
+
+    // Siapkan data untuk worksheet (tanpa GambarQRIS)
     const dataForExcel = qrisData.map(item => ({
-      URL: item.url,
-      Bank: item.bank,
-      NoQRIS: item.NoQRIS,
-      DateFound: item.DateFound ? new Date(item.DateFound).toLocaleDateString('en-US') : '-',
-      DateBlocked: item.DateBlocked ? new Date(item.DateBlocked).toLocaleDateString('en-US') : '-',
-      StatusQRIS: item.StatusQRIS ? 'Blocked' : 'Active', // Sesuaikan dengan StatusQRIS
-      GambarQRIS: item.GambarQRIS || '-',
+      URL: item.url || '',
+      Bank: item.bank || '',
+      NoQRIS: item.NoQRIS || '',
+      DateFound: item.DateFound ? new Date(item.DateFound) : '',
+      DateBlocked: item.DateBlocked ? new Date(item.DateBlocked) : '',
+      StatusQRIS: item.StatusQRIS === true ? 'Blocked' : 'Active'
     }));
 
-    // Membuat worksheet dan workbook
+    // Buat worksheet dan workbook
     const ws = XLSX.utils.json_to_sheet(dataForExcel);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'QRIS Data');
 
-    // Mengkonversi ke file excel buffer
+    // Konversi ke buffer
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' });
 
-    // Menyusun header response
-    res.setHeader('Content-Disposition', `attachment; filename=qris_data_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    // Kirim response
+    res.setHeader('Content-Disposition', `attachment; filename="qris_data_export_${new Date().toISOString().slice(0, 10)}.xlsx"`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-
-    // Mengirimkan file excel ke client
     res.send(excelBuffer);
 
   } catch (error) {
     console.error("Export error:", error);
-    res.status(500).json({ message: "Gagal mengekspor data." });
+    res.status(500).json({ message: "Gagal mengekspor data.", error: error.message });
   }
 });
+
 
 // API: Fetch all Keyword data
 app.get('/api/keyword', async (req, res) => {
