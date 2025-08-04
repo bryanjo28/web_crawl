@@ -7,6 +7,7 @@ const UrlModel = require('./models/Url'); // Sesuai dengan nama file 'Url.js'
 const RekModel = require('./models/Rekening');
 const QRISModel = require('./models/Qris');
 const KeyModel = require('./models/Keyword');
+const CrawlModel = require('./models/ExcludeWeb')
 
 const XLSX = require('xlsx');
 
@@ -41,6 +42,11 @@ app.get('/qris', (req, res) => {
 app.get('/rekening', (req, res) => {
   res.sendFile(path.join(__dirname, 'pages/rekening.html'));
 });
+
+app.get('/exclude_web', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pages/exclude_web.html'));
+});
+
 
 // Route khusus untuk navbar
 app.get('/navbar', (req, res) => {
@@ -689,6 +695,77 @@ app.post('/api/keyword/bulk', async (req, res) => {
     });
   }
 });
+
+
+// GET semua data URL
+app.get('/api/excludeCrawl', async (req, res) => {
+  try {
+    const data = await CrawlModel.find();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal ambil data', error: err });
+  }
+});
+
+// POST: Tambah URL Exclude baru
+app.post('/api/excludeCrawl', async (req, res) => {
+  try {
+    const { url } = req.body;
+
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ message: 'URL tidak valid' });
+    }
+
+    const normalizedUrl = url.trim().toLowerCase();
+
+    // 1. Cek apakah URL sudah ada di excludeCrawl (tanpa case sensitive)
+    const existing = await CrawlModel.findOne({ url: { $regex: `^${normalizedUrl}$`, $options: 'i' } });
+
+    if (existing) {
+      return res.status(409).json({ message: 'URL sudah ada di daftar exclude' });
+    }
+
+    // 2. Simpan URL ke excludeCrawl
+    const newUrl = new CrawlModel({ url: normalizedUrl, inputBy: 'System' });
+    await newUrl.save();
+
+    // 3. Hapus dari crawlData berdasarkan kecocokan dengan `source` (juga case-insensitive)
+    const deleted = await UrlModel.deleteMany({ source: { $regex: `^${normalizedUrl}$`, $options: 'i' } });
+
+    res.json({
+      message: 'URL berhasil ditambahkan dan data terkait dihapus',
+      data: newUrl,
+      deletedCount: deleted.deletedCount,
+    });
+
+  } catch (err) {
+    console.error('POST /excludeCrawl Error:', err);
+    res.status(500).json({ message: 'Gagal tambah URL', error: err });
+  }
+});
+
+
+// PUT: Edit URL Exclude berdasarkan ID
+app.put('/api/excludeCrawl/:id', async (req, res) => {
+  try {
+    const { url } = req.body;
+    const updated = await CrawlModel.findByIdAndUpdate(req.params.id, { url }, { new: true });
+    res.json({ message: 'URL berhasil diupdate', data: updated });
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal update URL', error: err });
+  }
+});
+
+// DELETE: Hapus URL Exclude berdasarkan ID
+app.delete('/api/excludeCrawl/:id', async (req, res) => {
+  try {
+    await CrawlModel.findByIdAndDelete(req.params.id);
+    res.json({ message: 'URL berhasil dihapus' });
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal hapus URL', error: err });
+  }
+});
+
 
 
 // Helper format tanggal
