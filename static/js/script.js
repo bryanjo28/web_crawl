@@ -208,6 +208,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <td><a href="#">${item.url}</a></td>
         <td>${item.inputBy || ''}</td>
         <td>${item.flagUser === true ? 'Y' : item.flagUser === false ? 'N' : ''}</td>
+          <td>${item.flagSystem === true ? 'Y' : item.flagSystem === false ? 'N' : ''}</td>
         <td>${item.webStatus || ''}</td>
         <td>${item.uid || ''}</td>
         <td>${item.password || ''}</td>
