@@ -321,6 +321,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function handleSearch() {
     const keyword = document.getElementById("search").value.toLowerCase();
     const classification = document.getElementById("classification").value;
+    const classificationSystem = document.getElementById("classificationSystem").value;
     const webStatus = document.getElementById("web-status").value;
     const uid = document.getElementById("uid").value;
     const dateRange = document.getElementById("last-crawling").value.trim();
@@ -357,6 +358,10 @@ document.addEventListener('DOMContentLoaded', function () {
         (classification === "N" && item.flagUser === false)
       );
 
+      const classificationSystemMatch = !classificationSystem || (
+        (classificationSystem === "Y" && item.flagSystem === true) ||
+        (classificationSystem === "N" && item.flagSystem === false)
+      )
       const webStatusMatch = !webStatus || item.webStatus === webStatus;
       const uidMatchSelect =
         !uid ||
@@ -379,6 +384,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const finalMatch = (
         (urlMatch || inputByMatch || uidMatchKeyword) &&
         classificationMatch &&
+        classificationSystemMatch &&
         webStatusMatch &&
         uidMatchSelect &&
         flagUserMatch &&
