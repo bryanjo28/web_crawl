@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Config Page</title>
+  <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link href="/static/fontawesome/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+
+
+
+<body class="bg-light">
+  <div class="container-fluid">
+    <div class="row min-vh-100">
+      <!-- Sidebar loaded dynamically via JavaScript -->
+      <div class="col-md-2 bg-light sidebar py-3 border-end">
+        <!-- Sidebar content will be dynamically loaded here -->
+      </div>
+      <!-- Main Content -->
+      <div class="col-md-4 p-4 content" id="content">
+        <h1 class="mb-3">Config</h1>
+
+        <div id="alertBox"></div>
+
+        <form id="configForm" class="card p-3 shadow-sm">
+          <div class="mb-3">
+            <label for="maxUrlScan" class="form-label">Max URL Scan</label>
+            <input type="number" min="0" id="maxUrlScan" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label for="maxFilter" class="form-label">Max Filter</label>
+            <input type="number" min="0" id="maxFilter" class="form-control" required>
+          </div>
+          <button class="btn btn-primary" type="submit">Simpan</button>
+        </form>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- js bootstrap -->
+  <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/config.js"></script>
+</body>
+
+</html>

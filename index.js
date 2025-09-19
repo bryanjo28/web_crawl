@@ -8,6 +8,7 @@ const RekModel = require('./models/Rekening');
 const QRISModel = require('./models/Qris');
 const KeyModel = require('./models/Keyword');
 const CrawlModel = require('./models/ExcludeWeb')
+const ConfigModel = require('./models/Config')
 
 const XLSX = require('xlsx');
 
@@ -45,6 +46,10 @@ app.get('/rekening', (req, res) => {
 
 app.get('/exclude_web', (req, res) => {
   res.sendFile(path.join(__dirname, 'pages/exclude_web.html'));
+});
+
+app.get('/config_web', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pages/config.html'));
 });
 
 
@@ -766,14 +771,44 @@ app.delete('/api/excludeCrawl/:id', async (req, res) => {
   }
 });
 
+// GET: ambil config terbaru (anggap hanya satu dokumen yang relevan)
+// Ambil config (1 dokumen saja)
+app.get('/api/config', async (req, res) => {
+  try {
+    const doc = await ConfigModel.findOne().lean();
+    if (!doc) return res.status(404).json({ message: 'Belum ada config' });
+    res.json(doc);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
 
+// Upsert config (buat kalau belum ada, update kalau sudah ada)
+app.put('/api/config', async (req, res) => {
+  try {
+    const { maxUrlScan, maxFilter } = req.body;
+    if (maxUrlScan == null || maxFilter == null) {
+      return res.status(400).json({ message: 'maxUrlScan & maxFilter wajib diisi' });
+    }
+
+    const updated = await ConfigModel.findOneAndUpdate(
+      {}, // selalu dokumen pertama
+      { maxUrlScan: Number(maxUrlScan), maxFilter: Number(maxFilter) },
+      { new: true, upsert: true, runValidators: true }
+    );
+
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
 
 // Helper format tanggal
-function formatDateExport(date) {
-  const d = new Date(date);
-  if (isNaN(d)) return '';
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
-}
+// function formatDateExport(date) {
+//   const d = new Date(date);
+//   if (isNaN(d)) return '';
+//   return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+// }
 
 // Jalankan server
 app.listen(port, '0.0.0.0', () => {
