@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             // ⬇️ Tampilkan pesan sukses dengan jumlah yang dihapus
             $("#successMessage").text(
-                `URL ${result.data.url} berhasil di-exclude. ${result.deletedCount} data crawl dihapus.`
+                `URL ${result.data.url} berhasil di-exclude. ${result.deletedCount} data crawl di-exclude.`
             );
             $("#successAlert").show().delay(3000).fadeOut();
 
