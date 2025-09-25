@@ -160,13 +160,12 @@ document.addEventListener("DOMContentLoaded", function () {
         const item = tableData.find(d => d._id === id);
         if (item) {
           selectedRowId = id;
-          document.getElementById("keyword").value = item.keyword;
-
+          document.getElementById("keywordEdit").value = item.keyword;  // Isi form input dengan keyword
           const modal = new bootstrap.Modal(document.getElementById("editKeywordModal"));
           modal.show();
         }
       });
-    });
+    });  // Debug log untuk memastikan ID dan item yang diambil
 
     document.querySelectorAll(".delete-btn").forEach(btn => {
       btn.addEventListener("click", function () {
@@ -187,7 +186,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (res.ok) {
         showAlert(true, "delete", result.message);
-        await  fetchKeywordData(); // reload data table
+        await fetchKeywordData(); // reload data table
       } else {
         showAlert(false, "delete", result.message);
       }
@@ -240,7 +239,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Fungsi untuk submit perubahan keyword
   document.getElementById("saveKeywordBtn").addEventListener("click", async () => {
-    const keywordInput = document.getElementById("keyword").value.trim();
+    const keywordInput = document.getElementById("keywordEdit").value.trim();
     if (!keywordInput) {
       alert("Keyword tidak boleh kosong!");
       return;

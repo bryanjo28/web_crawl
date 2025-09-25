@@ -716,38 +716,40 @@ app.get('/api/excludeCrawl', async (req, res) => {
 app.post('/api/excludeCrawl', async (req, res) => {
   try {
     const { url } = req.body;
-
+    console.log("URL yang diterima dari frontend:", url);  // Debug log
     if (!url || typeof url !== 'string') {
       return res.status(400).json({ message: 'URL tidak valid' });
     }
 
     const normalizedUrl = url.trim().toLowerCase();
+    console.log("Normalized URL:", normalizedUrl);
 
-    // 1. Cek apakah URL sudah ada di excludeCrawl (tanpa case sensitive)
+    // Cek apakah URL sudah ada di excludeCrawl
     const existing = await CrawlModel.findOne({ url: { $regex: `^${normalizedUrl}$`, $options: 'i' } });
-
     if (existing) {
       return res.status(409).json({ message: 'URL sudah ada di daftar exclude' });
     }
 
-    // 2. Simpan URL ke excludeCrawl
+    // Simpan URL baru ke CrawlModel
     const newUrl = new CrawlModel({ url: normalizedUrl, inputBy: 'System' });
     await newUrl.save();
+    console.log("URL berhasil disimpan:", newUrl);
 
-    // 3. Hapus dari crawlData berdasarkan kecocokan dengan `source` (juga case-insensitive)
-    const deleted = await UrlModel.deleteMany({ source: { $regex: `^${normalizedUrl}$`, $options: 'i' } });
+    // Hapus data terkait di UrlModel
+    const deleted = await UrlModel.deleteMany({ url: { $regex: `^${normalizedUrl}$`, $options: 'i' } });
+    console.log("Deleted count:", deleted.deletedCount);
 
     res.json({
       message: 'URL berhasil ditambahkan dan data terkait dihapus',
       data: newUrl,
       deletedCount: deleted.deletedCount,
     });
-
   } catch (err) {
     console.error('POST /excludeCrawl Error:', err);
     res.status(500).json({ message: 'Gagal tambah URL', error: err });
   }
 });
+
 
 
 // PUT: Edit URL Exclude berdasarkan ID
