@@ -153,8 +153,12 @@ app.post('/api/urls/bulk', async (req, res) => {
       const setObj = {};
 
       if (item.inputBy) setObj.inputBy = item.inputBy;
-      if (item.flagSystem !== undefined) setObj.flagSystem = item.flagSystem;
-      if (item.flagUser !== undefined) setObj.flagUser = item.flagUser;
+      // if (item.flagSystem !== undefined) setObj.flagSystem = item.flagSystem;
+      // if (item.flagUser !== undefined) setObj.flagUser = item.flagUser;
+       // Jika kosong, default ke true
+      setObj.flagSystem = item.flagSystem !== undefined ? item.flagSystem : true;
+      setObj.flagUser = item.flagUser !== undefined ? item.flagUser : true;
+      
       if (item.webStatus) setObj.webStatus = item.webStatus;
       if (item.uid !== undefined) setObj.uid = item.uid;
       if (item.password !== undefined) setObj.password = item.password;

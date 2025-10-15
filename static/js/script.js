@@ -674,13 +674,18 @@ document.addEventListener('DOMContentLoaded', function () {
     return "";
   };
 
-  const mapYN = (val) => {
-    if (!val || val.trim() === "") return undefined;
-    const upper = val.trim().toUpperCase();
-    if (upper === "Y") return true;
-    if (upper === "N") return false;
-    return undefined;
-  };
+function mapYN(value) {
+  if (typeof value === "string") {
+    value = value.trim().toUpperCase();
+    if (value === "Y") return true;
+    if (value === "N") return false;
+  }
+  // Kalau kosong atau undefined, default ke true
+  if (value === undefined || value === null || value === "") return true;
+  return value === true;
+}
+
+
 
   function parseDateField(value) {
     if (!value) return null;
