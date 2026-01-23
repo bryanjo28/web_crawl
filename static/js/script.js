@@ -169,6 +169,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const pageSize = 10;
   let selectedRowId = null;
   let filteredData = []; // data yang ditampilkan setelah filter/search
+  let sortState = { key: "lastUpdate", direction: "desc" };
 
 
   // Ambil data dari API dan render
@@ -177,6 +178,8 @@ document.addEventListener('DOMContentLoaded', function () {
       const res = await fetch('/api/urls');
       tableData = await res.json();
       filteredData = [...tableData]; // default semua data
+      applySort();
+      updateSortIndicator();
       renderTable();
       renderPagination();
     } catch (err) {
@@ -235,6 +238,82 @@ document.addEventListener('DOMContentLoaded', function () {
   function formatDate(dateStr) {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString("en-US");
+  }
+
+  function parseUsDateString(dateStr) {
+    if (!dateStr) return null;
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return null;
+    const month = Number(parts[0]);
+    const day = Number(parts[1]);
+    const year = Number(parts[2]);
+    const date = new Date(year, month - 1, day);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  function applySort() {
+    if (!sortState || !sortState.key) return;
+    const dir = sortState.direction === "asc" ? 1 : -1;
+    const key = sortState.key;
+
+    filteredData.sort((a, b) => {
+      let av = a ? a[key] : null;
+      let bv = b ? b[key] : null;
+
+      if (av === null || av === undefined || av === "") {
+        if (bv === null || bv === undefined || bv === "") return 0;
+        return 1;
+      }
+      if (bv === null || bv === undefined || bv === "") return -1;
+
+      if (key === "lastUpdate" || key === "lastCrawl" || key === "firstCrawl") {
+        av = new Date(av).getTime();
+        bv = new Date(bv).getTime();
+      }
+
+      if (av > bv) return dir;
+      if (av < bv) return -dir;
+      return 0;
+    });
+  }
+
+  function updateSortIndicator() {
+    const indicatorMap = {
+      firstCrawl: "firstCrawlIndicator",
+      lastCrawl: "lastCrawlIndicator",
+      lastUpdate: "lastUpdateIndicator"
+    };
+
+    // default: semua indicator tampil desc (v)
+    Object.values(indicatorMap).forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = "v";
+    });
+
+    // kolom aktif: tampil sesuai sortState
+    const activeId = indicatorMap[sortState.key];
+    if (!activeId) return;
+
+    const activeEl = document.getElementById(activeId);
+    if (!activeEl) return;
+
+    activeEl.textContent = sortState.direction === "asc" ? "^" : "v";
+  }
+
+
+  function toggleSort(key) {
+    if (sortState.key === key) {
+      sortState.direction = sortState.direction === "asc" ? "desc" : "asc";
+    } else {
+      sortState.key = key;
+      sortState.direction = "desc";
+    }
+
+    applySort();
+    currentPage = 1;
+    renderTable();
+    renderPagination();
+    updateSortIndicator();
   }
 
   function renderPagination() {
@@ -330,16 +409,17 @@ document.addEventListener('DOMContentLoaded', function () {
     let startDate = null;
     let endDate = null;
     if (dateRange) {
-      let separator = '-';
-      if (dateRange.includes('to')) separator = 'to';
+      let parts = [];
+      if (dateRange.includes(" to ")) {
+        parts = dateRange.split(" to ").map(d => d.trim()).filter(Boolean);
+      } else if (dateRange.includes(" - ")) {
+        parts = dateRange.split(" - ").map(d => d.trim()).filter(Boolean);
+      } else {
+        parts = [dateRange];
+      }
 
-      const [startStr, endStr] = dateRange.split(separator).map(d => d.trim());
-      const startParts = startStr.split('/');
-      const endParts = endStr.split('/');
-
-      startDate = new Date(+startParts[2], +startParts[0] - 1, +startParts[1]);
-      endDate = new Date(+endParts[2], +endParts[0] - 1, +endParts[1]);
-
+      startDate = parseUsDateString(parts[0]);
+      endDate = parts.length > 1 ? parseUsDateString(parts[1]) : startDate;
     }
 
     filteredData = tableData.filter(item => {
@@ -398,6 +478,7 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log("Filtered Data (after search):", filteredData);
 
     currentPage = 1;
+    applySort();
     renderTable();
     renderPagination();
   }
@@ -413,6 +494,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     filteredData = [...tableData];
     currentPage = 1;
+    applySort();
     renderTable();
     renderPagination();
   });
@@ -674,16 +756,16 @@ document.addEventListener('DOMContentLoaded', function () {
     return "";
   };
 
-function mapYN(value) {
-  if (typeof value === "string") {
-    value = value.trim().toUpperCase();
-    if (value === "Y") return true;
-    if (value === "N") return false;
+  function mapYN(value) {
+    if (typeof value === "string") {
+      value = value.trim().toUpperCase();
+      if (value === "Y") return true;
+      if (value === "N") return false;
+    }
+    // Kalau kosong atau undefined, default ke true
+    if (value === undefined || value === null || value === "") return true;
+    return value === true;
   }
-  // Kalau kosong atau undefined, default ke true
-  if (value === undefined || value === null || value === "") return true;
-  return value === true;
-}
 
 
 
@@ -782,6 +864,22 @@ function mapYN(value) {
   fetchData();
 
   document.querySelector('.btn-primary').addEventListener('click', handleSearch);
+  const firstCrawlHeader = document.getElementById("firstCrawlHeader");
+  if (firstCrawlHeader) {
+    firstCrawlHeader.addEventListener("click", () => toggleSort("firstCrawl"));
+  }
+
+  const lastCrawlHeader = document.getElementById("lastCrawlHeader");
+  if (lastCrawlHeader) {
+    lastCrawlHeader.addEventListener("click", () => toggleSort("lastCrawl"));
+  }
+
+  const lastUpdateHeader = document.getElementById("lastUpdateHeader");
+  if (lastUpdateHeader) {
+    lastUpdateHeader.addEventListener("click", () => toggleSort("lastUpdate"));
+  }
 
 
 });
+
+
