@@ -1,29 +1,7 @@
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
     let selectedDeleteId = null; // variabel global di JS
 
-    // Sidebar load dan nav toggle
-    fetch("../static/navbar/navbar.html")
-        .then((response) => response.text())
-        .then((data) => {
-            document.querySelector(".sidebar").innerHTML = data;
-
-            document.getElementById("toggleSidebarBtn").addEventListener("click", function () {
-                const sidebar = document.querySelector(".sidebar");
-                const content = document.getElementById("content");
-                sidebar.classList.toggle("collapsed");
-                content.classList.toggle("collapsed");
-            });
-
-            const menuItems = document.querySelectorAll(".nav-link");
-            const currentUrl = window.location.pathname.split("/").pop();
-            menuItems.forEach((item) => {
-                const itemUrl = item.getAttribute("href").split("/").pop();
-                if (itemUrl === currentUrl) {
-                    item.classList.add("active");
-                }
-            });
-        })
-        .catch((error) => console.log("Error loading the navbar:", error));
+    await window.AppAuth.initPage();
 
     const API = '/api/config';
 

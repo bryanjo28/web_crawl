@@ -9,12 +9,24 @@
 </div>
 <ul class="nav flex-column">
     <li class="nav-item">
-        <a class="nav-link" href="/">
-            <i class="fa fa-cogs"></i> 
+        <a class="nav-link" href="/site" data-role="admin">
+             <i class="fa-solid fa-globe"></i>
             <span>Site</span>
         </a>
     </li>
-    <li class="nav-item">
+    <li class="nav-item" data-role="admin">
+        <a class="nav-link" href="/user">
+            <i class="fa-solid fa-user"></i>
+            <span>User Management</span>
+        </a>
+    </li>
+     <li class="nav-item" data-role="admin">
+        <a class="nav-link" href="/config_web">
+            <i class="fa-solid fa-globe"></i>
+            <span>Config Website</span>
+        </a>
+    </li>
+    <!-- <li class="nav-item">
         <a class="nav-link" href="/rekening">
             <i class="fa fa-credit-card"></i> 
             <span>Rekening</span>
@@ -37,11 +49,14 @@
             <i class="fa fa-key"></i> 
             <span>Exclude Website</span>
         </a>
-    </li>
-		<li class="nav-item">
-        <a class="nav-link" href="/config_web">
-					<i class="fa fa-cogs"></i> 
-            <span>Config Website</span>
-        </a>
-    </li>
+    </li> -->
 </ul>
+<div class="sidebar-user-card mt-4">
+    <div class="sidebar-user-label">Logged in as</div>
+    <div class="sidebar-user-name" id="sidebarUserName">-</div>
+    <div class="sidebar-user-role" id="sidebarUserRole">-</div>
+    <button id="logoutBtn" class="btn btn-primary btn-sm w-100 mt-3">
+        <i class="fa fa-sign-out-alt"></i>
+        <span>Logout</span>
+    </button>
+</div>

@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const app = express();
 const port = 80;
 const mongoose = require('mongoose');
@@ -9,53 +10,362 @@ const QRISModel = require('./models/Qris');
 const KeyModel = require('./models/Keyword');
 const CrawlModel = require('./models/ExcludeWeb')
 const ConfigModel = require('./models/Config')
+const UserModel = require('./models/User')
 
 const XLSX = require('xlsx');
 
+const SESSION_COOKIE_NAME = 'crawl_session';
+const sessionStore = new Map();
+const ADMIN_ROLE = 'admin';
 
-// Koneksi ke MongoDB lokal (tanpa username/password)
+function parseCookies(cookieHeader = '') {
+  return cookieHeader.split(';').reduce((acc, chunk) => {
+    const [rawKey, ...rawValue] = chunk.trim().split('=');
+    if (!rawKey) return acc;
+    acc[rawKey] = decodeURIComponent(rawValue.join('=') || '');
+    return acc;
+  }, {});
+}
+
+function setSessionCookie(res, token) {
+  res.setHeader(
+    'Set-Cookie',
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax`
+  );
+}
+
+function clearSessionCookie(res) {
+  res.setHeader(
+    'Set-Cookie',
+    `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
+  );
+}
+
+async function seedDefaultUsers() {
+  const [adminCount, userCount] = await Promise.all([
+    UserModel.countDocuments({ role: 'admin' }),
+    UserModel.countDocuments({ role: 'user' })
+  ]);
+
+  if (adminCount > 0 && userCount > 0) {
+    console.log('Seed user dilewati: admin dan user sudah tersedia.');
+    return;
+  }
+
+  const dummyUsers = [
+    {
+      name: 'admin',
+      password: 'admin123',
+      fullName: 'Administrator',
+      role: 'admin',
+      isActive: true
+    },
+    {
+      name: 'user',
+      password: 'user123',
+      fullName: 'Standard User',
+      role: 'user',
+      isActive: true
+    }
+  ];
+
+  await Promise.all(
+    dummyUsers.map((user) =>
+      UserModel.findOneAndUpdate(
+        { name: user.name },
+        {
+          $set: {
+            password: user.password,
+            fullName: user.fullName,
+            role: user.role,
+            isActive: user.isActive,
+            lastUpdatedBy: 'system',
+            lastUpdatedAt: new Date()
+          },
+          $setOnInsert: {
+            createdBy: 'system',
+            createdAt: new Date()
+          }
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      )
+    )
+  );
+
+  console.log('Dummy user login siap');
+}
+
 mongoose.connect('mongodb://localhost:27017/JudolBCA', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-  .then(() => console.log('✅ Terhubung ke MongoDB'))
-  .catch((err) => console.error('❌ Gagal terhubung ke MongoDB', err));
+  .then(async () => {
+    console.log('MongoDB connected');
+    await seedDefaultUsers();
+  })
+  .catch((err) => console.error('MongoDB connection failed', err));
 
-app.use(express.json({ limit: '10mb' }));   // ⬅️ Penting!
-
-
-// Static file middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 app.use('/static', express.static(path.join(__dirname, 'static')));
+
+app.use((req, res, next) => {
+  const cookies = parseCookies(req.headers.cookie);
+  const sessionToken = cookies[SESSION_COOKIE_NAME];
+
+  if (sessionToken && sessionStore.has(sessionToken)) {
+    req.user = sessionStore.get(sessionToken);
+  }
+
+  next();
+});
+
+app.get('/login', (req, res) => {
+  if (req.user) {
+    return res.redirect('/');
+  }
+
+  res.sendFile(path.join(__dirname, 'pages/login.html'));
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { name, password } = req.body;
+
+    if (!name || !password) {
+      return res.status(400).json({ message: 'Username dan password wajib diisi.' });
+    }
+
+    const user = await UserModel.findOne({
+      name: name.trim(),
+      password: password.trim(),
+      isActive: true
+    }).lean();
+
+    if (!user) {
+      return res.status(401).json({ message: 'Username atau password salah.' });
+    }
+
+    const sessionToken = crypto.randomBytes(24).toString('hex');
+    const safeUser = {
+      id: user._id.toString(),
+      name: user.name,
+      fullName: user.fullName,
+      role: user.role
+    };
+
+    sessionStore.set(sessionToken, safeUser);
+    setSessionCookie(res, sessionToken);
+
+    res.json({ message: 'Login berhasil.', user: safeUser });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal login.', error: error.message });
+  }
+});
+
+app.get('/api/auth/me', (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  res.json({ user: req.user });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const cookies = parseCookies(req.headers.cookie);
+  const sessionToken = cookies[SESSION_COOKIE_NAME];
+
+  if (sessionToken) {
+    sessionStore.delete(sessionToken);
+  }
+
+  clearSessionCookie(res);
+  res.json({ message: 'Logout berhasil.' });
+});
+
+app.use((req, res, next) => {
+  const isPublicRoute =
+    req.path === '/login' ||
+    req.path === '/favicon.ico' ||
+    req.path.startsWith('/static/') ||
+    req.path.startsWith('/api/auth/');
+
+  if (isPublicRoute) {
+    return next();
+  }
+
+  if (!req.user) {
+    if (req.path.startsWith('/api/')) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    return res.redirect('/login');
+  }
+
+  next();
+});
+
+function requireAdmin(req, res, next) {
+  if (req.user?.role !== ADMIN_ROLE) {
+    if (req.path.startsWith('/api/')) {
+      return res.status(403).json({ message: 'Akses admin diperlukan.' });
+    }
+
+    return res.redirect('/');
+  }
+
+  next();
+}
 
 // Routing ke HTML pages
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'pages/index.html'));
+  res.redirect('/site');
 });
 
-app.get('/keyword', (req, res) => {
-  res.sendFile(path.join(__dirname, 'pages/keyword.html'));
+app.get('/site', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pages/site.html'));
 });
 
-app.get('/qris', (req, res) => {
-  res.sendFile(path.join(__dirname, 'pages/qris.html'));
+app.get('/user', requireAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'pages/user.html'));
 });
 
-app.get('/rekening', (req, res) => {
-  res.sendFile(path.join(__dirname, 'pages/rekening.html'));
-});
 
-app.get('/exclude_web', (req, res) => {
-  res.sendFile(path.join(__dirname, 'pages/exclude_web.html'));
-});
-
-app.get('/config_web', (req, res) => {
+app.get('/config_web', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'pages/config.html'));
 });
+
+
+// app.get('/keyword', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'pages/keyword.html'));
+// });
+
+// app.get('/qris', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'pages/qris.html'));
+// });
+
+// app.get('/rekening', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'pages/rekening.html'));
+// });
+
+// app.get('/exclude_web', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'pages/exclude_web.html'));
+// });
 
 
 // Route khusus untuk navbar
 app.get('/navbar', (req, res) => {
   res.sendFile(path.join(__dirname, 'static/navbar/navbar.html'));
+});
+
+app.get('/api/users', requireAdmin, async (req, res) => {
+  try {
+    const users = await UserModel.find().sort({ createdAt: -1 }).lean();
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal mengambil data user.', error: error.message });
+  }
+});
+
+app.post('/api/users', requireAdmin, async (req, res) => {
+  try {
+    const { name, password, fullName, role, isActive } = req.body;
+
+    if (!name || !password || !fullName || !role) {
+      return res.status(400).json({ message: 'Username, password, full name, dan role wajib diisi.' });
+    }
+
+    const existingUser = await UserModel.findOne({ name: name.trim() });
+    if (existingUser) {
+      return res.status(409).json({ message: 'Username sudah digunakan.' });
+    }
+
+    const now = new Date();
+    const user = await UserModel.create({
+      name: name.trim(),
+      password: password.trim(),
+      fullName: fullName.trim(),
+      role,
+      isActive: Boolean(isActive),
+      createdBy: req.user.fullName,
+      createdAt: now,
+      lastUpdatedBy: req.user.fullName,
+      lastUpdatedAt: now
+    });
+
+    res.status(201).json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal menambahkan user.', error: error.message });
+  }
+});
+
+app.put('/api/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, password, fullName, role, isActive } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'ID user tidak valid.' });
+    }
+
+    if (!name || !fullName || !role) {
+      return res.status(400).json({ message: 'Username, full name, dan role wajib diisi.' });
+    }
+
+    const existingUser = await UserModel.findOne({
+      name: name.trim(),
+      _id: { $ne: id }
+    });
+
+    if (existingUser) {
+      return res.status(409).json({ message: 'Username sudah digunakan user lain.' });
+    }
+
+    const updatePayload = {
+      name: name.trim(),
+      fullName: fullName.trim(),
+      role,
+      isActive: Boolean(isActive),
+      lastUpdatedBy: req.user.fullName,
+      lastUpdatedAt: new Date()
+    };
+
+    if (password && password.trim()) {
+      updatePayload.password = password.trim();
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(id, updatePayload, { new: true });
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User tidak ditemukan.' });
+    }
+
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal memperbarui user.', error: error.message });
+  }
+});
+
+app.delete('/api/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'ID user tidak valid.' });
+    }
+
+    if (req.user.id === id) {
+      return res.status(400).json({ message: 'Admin tidak bisa menghapus akun yang sedang dipakai login.' });
+    }
+
+    const deletedUser = await UserModel.findByIdAndDelete(id);
+    if (!deletedUser) {
+      return res.status(404).json({ message: 'User tidak ditemukan.' });
+    }
+
+    res.json({ message: 'User berhasil dihapus.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal menghapus user.', error: error.message });
+  }
 });
 
 
@@ -779,7 +1089,7 @@ app.delete('/api/excludeCrawl/:id', async (req, res) => {
 
 // GET: ambil config terbaru (anggap hanya satu dokumen yang relevan)
 // Ambil config (1 dokumen saja)
-app.get('/api/config', async (req, res) => {
+app.get('/api/config', requireAdmin, async (req, res) => {
   try {
     const doc = await ConfigModel.findOne().lean();
     if (!doc) return res.status(404).json({ message: 'Belum ada config' });
@@ -790,7 +1100,7 @@ app.get('/api/config', async (req, res) => {
 });
 
 // Upsert config (buat kalau belum ada, update kalau sudah ada)
-app.put('/api/config', async (req, res) => {
+app.put('/api/config', requireAdmin, async (req, res) => {
   try {
     const { maxUrlScan, maxFilter } = req.body;
     if (maxUrlScan == null || maxFilter == null) {
@@ -812,7 +1122,7 @@ app.put('/api/config', async (req, res) => {
 // Helper format tanggal
 // function formatDateExport(date) {
 //   const d = new Date(date);
-//   if (isNaN(d)) return '';
+//   if (isNaN(d)) return ';
 //   return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 // }
 
@@ -820,3 +1130,7 @@ app.put('/api/config', async (req, res) => {
 app.listen(port, '0.0.0.0', () => {
   console.log(`Server berjalan di http://localhost:${port}`);
 });
+
+
+
+

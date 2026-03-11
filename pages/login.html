@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | Tools Crawling</title>
+  <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link href="/static/fontawesome/css/all.min.css" rel="stylesheet">
+</head>
+<body class="login-page">
+  <div class="login-shell container-fluid p-0">
+    <div class="row g-0">
+      <div class="col-lg-6">
+        <div class="login-hero d-flex flex-column justify-content-between">
+          <div>
+            <div class="login-kicker">Secure Access</div>
+            <h1>Tools Crawling</h1>
+            <!-- <p>Semua halaman sekarang diproteksi login. Masuk dulu sebagai admin atau user sebelum mengakses dashboard.</p> -->
+          </div>
+          <div class="login-credentials">
+            <!-- <div class="login-credential">
+              <strong>Admin</strong>
+              <span>Username: <code>admin</code></span>
+              <span>Password: <code>admin</code></span>
+            </div>
+            <div class="login-credential">
+              <strong>User</strong>
+              <span>Username: <code>user</code></span>
+              <span>Password: <code>user</code></span>
+            </div> -->
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6 bg-white">
+        <div class="login-panel">
+          <h2>Masuk ke sistem</h2>
+          <p class="login-panel-copy">Gunakan username dan password sesuai schema user yang sudah Anda siapkan.</p>
+
+          <div class="alert alert-danger d-none" id="loginError"></div>
+
+          <form id="loginForm" class="login-form">
+            <div class="mb-3">
+              <label for="name" class="form-label">Username</label>
+              <input type="text" id="name" class="form-control" placeholder="Masukkan username" autocomplete="username">
+            </div>
+            <div class="mb-4">
+              <label for="password" class="form-label">Password</label>
+              <input type="password" id="password" class="form-control" placeholder="Masukkan password" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary login-submit" id="loginSubmit">
+              <i class="fa fa-right-to-bracket me-2"></i>Login
+            </button>
+          </form>
+
+          <div class="login-hint">Role <strong>admin</strong> bisa buka menu config. Role <strong>user</strong> tetap bisa masuk ke halaman utama.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/login.js"></script>
+</body>
+</html>
