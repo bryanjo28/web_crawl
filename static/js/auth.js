@@ -51,9 +51,11 @@ window.AppAuth = (() => {
 
   function fillUserCard(user) {
     const nameEl = document.getElementById('sidebarUserName');
+    const usernameEl = document.getElementById('sidebarUserUsername');
     const roleEl = document.getElementById('sidebarUserRole');
 
     if (nameEl) nameEl.textContent = user.fullName || user.name;
+    if (usernameEl) usernameEl.textContent = `username: ${user.name}`;
     if (roleEl) roleEl.textContent = user.role;
   }
 
