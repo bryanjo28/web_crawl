@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task List</title>
+  <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link href="/static/fontawesome/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+  <div class="container-fluid">
+    <div class="row min-vh-100">
+      <div class="col-md-2 bg-light sidebar py-3 border-end"></div>
+
+      <div class="col-md-10 p-4 content" id="content">
+        <h4 class="fw-bold">Task List</h4>
+
+        <div class="mb-2 row">
+          <label for="taskDateFilter" class="col-sm-2 col-form-label">Tasklist Date</label>
+          <div class="col-sm-3 pt-1">
+            <input type="date" id="taskDateFilter" class="form-control form-control-sm">
+          </div>
+          <div class="col-sm-4 pt-2 text-muted small">untuk filter by tasklist date</div>
+        </div>
+
+        <div class="mb-2 row">
+          <label for="picFilter" class="col-sm-2 col-form-label">PIC</label>
+          <div class="col-sm-3 pt-1">
+            <input type="text" id="picFilter" class="form-control form-control-sm" placeholder="Nama PIC">
+          </div>
+          <div class="col-sm-4 pt-2 text-muted small">untuk filter by PIC</div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-6 d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-primary" id="searchButton">
+              <i class="fa fa-search" aria-hidden="true"></i> Search
+            </button>
+            <button id="openAddTaskModal" class="btn btn-sm btn-success">
+              <i class="fa fa-plus"></i> Add
+            </button>
+            <button id="exportTaskData" type="button" class="btn btn-sm btn-secondary">
+              <i class="fa fa-file" aria-hidden="true"></i> Export
+            </button>
+            <button id="distributeTaskButton" type="button" class="btn btn-sm btn-warning">
+              <i class="fa fa-share"></i> Distribute
+            </button>
+          </div>
+        </div>
+
+        <div class="alert alert-success alert-dismissible fade show" id="successAlert" style="display: none;">
+          <i class="fas fa-check-circle me-2"></i>
+          <span id="successMessage">Task berhasil disimpan.</span>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <div class="alert alert-danger alert-dismissible fade show" id="errorAlert" style="display: none;">
+          <i class="fas fa-times-circle me-2"></i>
+          <span id="errorMessage">Task gagal diproses.</span>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <div class="row mb-2" style="text-align: right;">
+          <div class="col-sm-12">
+            <button class="btn btn-light resetButton">
+              <i class="fa fa-refresh" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover text-sm">
+            <thead class="table-light">
+              <tr>
+                <th>No</th>
+                <th>Tasklist Date</th>
+                <th>PIC</th>
+                <th>Judol Site</th>
+                <th>Title Judol</th>
+                <th>Username</th>
+                <th>Password</th>
+                <th>Flag Judol</th>
+                <th>Status</th>
+                <th>Last Update By</th>
+                <th>Last Update Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="d-flex justify-content-center align-items-center gap-3 mt-3" id="pagination">
+          <button id="prev-page" class="btn btn-outline-primary btn-sm">
+            <i class="fa fa-angle-left"></i>
+          </button>
+          <span id="pagination-info" class="mx-2">Page 1 of 1</span>
+          <button id="next-page" class="btn btn-outline-primary btn-sm">
+            <i class="fa fa-angle-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/task.js"></script>
+</body>
+
+</html>

@@ -5,12 +5,16 @@ const app = express();
 const port = 80;
 const mongoose = require('mongoose');
 const UrlModel = require('./models/Url'); // Sesuai dengan nama file 'Url.js'
+const SiteModel = require('./models/Site'); // Sesuai dengan nama file 'Site.js'
+const TaskModel = require('./models/Task');
+
 const RekModel = require('./models/Rekening');
 const QRISModel = require('./models/Qris');
 const KeyModel = require('./models/Keyword');
 const CrawlModel = require('./models/ExcludeWeb')
 const ConfigModel = require('./models/Config')
 const UserModel = require('./models/User')
+
 
 const XLSX = require('xlsx');
 
@@ -222,19 +226,25 @@ app.get('/', (req, res) => {
   res.redirect('/site');
 });
 
-app.get('/site', (req, res) => {
-  res.sendFile(path.join(__dirname, 'pages/site.html'));
-});
-
 app.get('/user', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'pages/user.html'));
 });
-
 
 app.get('/config_web', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'pages/config.html'));
 });
 
+app.get('/site', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pages/site.html'));
+});
+
+app.get('/url', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pages/url.html'));
+});
+
+app.get('/task', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pages/task.html'));
+});
 
 // app.get('/keyword', (req, res) => {
 //   res.sendFile(path.join(__dirname, 'pages/keyword.html'));
@@ -443,6 +453,260 @@ app.delete('/api/urls/:id', async (req, res) => {
   }
 });
 
+// API: Get semua data Site
+app.get('/api/sites', async (req, res) => {
+  try {
+    const data = await SiteModel.find().sort({ lastUpdate: -1, url: 1 });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: 'Error ambil data site', error: err.message });
+  }
+});
+
+// API: Get detail Site by ID
+app.get('/api/sites/:id', async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'ID tidak valid' });
+  }
+
+  try {
+    const item = await SiteModel.findById(id);
+    if (!item) return res.status(404).json({ message: 'Data site tidak ditemukan' });
+
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal ambil detail site', error: err.message });
+  }
+});
+
+// API: Tambah Site
+app.post('/api/sites', async (req, res) => {
+  try {
+    const { url, status, lastScan, lastUpdateBy, lastUpdate } = req.body;
+
+    if (!url || !url.trim()) {
+      return res.status(400).json({ message: 'URL wajib diisi.' });
+    }
+
+    const normalizedUrl = url.trim();
+    const existing = await SiteModel.findOne({ url: normalizedUrl });
+    if (existing) {
+      return res.status(409).json({ message: 'Site sudah terdaftar sebelumnya.' });
+    }
+
+    const now = new Date();
+    const newSite = await SiteModel.create({
+      url: normalizedUrl,
+      status: status !== undefined ? Boolean(status) : true,
+      lastScan: lastScan ? new Date(lastScan) : null,
+      lastUpdateBy: lastUpdateBy || req.user?.fullName || req.user?.name || 'system',
+      lastUpdate: lastUpdate ? new Date(lastUpdate) : now
+    });
+
+    res.status(201).json(newSite);
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal simpan site', error: err.message });
+  }
+});
+
+// API: Update Site
+app.put('/api/sites/:id', async (req, res) => {
+  const { id } = req.params;
+  const { url, status, lastScan, lastUpdateBy, lastUpdate } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'ID tidak valid' });
+  }
+
+  try {
+    if (url !== undefined && !String(url).trim()) {
+      return res.status(400).json({ message: 'URL wajib diisi.' });
+    }
+
+    if (url !== undefined) {
+      const normalizedUrl = String(url).trim();
+      const existing = await SiteModel.findOne({
+        url: normalizedUrl,
+        _id: { $ne: id }
+      });
+
+      if (existing) {
+        return res.status(409).json({ message: 'URL site sudah digunakan data lain.' });
+      }
+    }
+
+    const updatePayload = {};
+
+    if (url !== undefined) updatePayload.url = String(url).trim();
+    if (status !== undefined) updatePayload.status = Boolean(status);
+    if (lastScan !== undefined) updatePayload.lastScan = lastScan ? new Date(lastScan) : null;
+    updatePayload.lastUpdateBy = lastUpdateBy || req.user?.fullName || req.user?.name || 'system';
+    updatePayload.lastUpdate = lastUpdate ? new Date(lastUpdate) : new Date();
+
+    const updated = await SiteModel.findByIdAndUpdate(id, updatePayload, { new: true });
+    if (!updated) return res.status(404).json({ message: 'Data site tidak ditemukan' });
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal update site', error: err.message });
+  }
+});
+
+// API: Hapus Site
+app.delete('/api/sites/:id', async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'ID tidak valid' });
+  }
+
+  try {
+    const deleted = await SiteModel.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: 'Data site tidak ditemukan' });
+
+    res.json({ message: 'Site berhasil dihapus' });
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal hapus site', error: err.message });
+  }
+});
+
+// API: Get semua data Task
+app.get('/api/tasks', async (req, res) => {
+  try {
+    const data = await TaskModel.find().sort({ lastUpdateDate: -1, taskDate: -1 });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: 'Error ambil data task', error: err.message });
+  }
+});
+
+// API: Get detail Task by ID
+app.get('/api/tasks/:id', async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'ID tidak valid' });
+  }
+
+  try {
+    const item = await TaskModel.findById(id);
+    if (!item) return res.status(404).json({ message: 'Data task tidak ditemukan' });
+
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal ambil detail task', error: err.message });
+  }
+});
+
+// API: Tambah Task
+app.post('/api/tasks', async (req, res) => {
+  try {
+    const {
+      taskDate,
+      pic,
+      url,
+      title,
+      username,
+      password,
+      flagJudol,
+      statusSite,
+      lastUpdatedBy,
+      lastUpdateDate
+    } = req.body;
+
+    if (!url || !String(url).trim()) {
+      return res.status(400).json({ message: 'Judol site wajib diisi.' });
+    }
+
+    const now = new Date();
+    const created = await TaskModel.create({
+      taskDate: taskDate ? new Date(taskDate) : null,
+      pic: pic ? String(pic).trim() : '',
+      url: String(url).trim(),
+      title: title ? String(title).trim() : '',
+      username: username ? String(username).trim() : '',
+      password: password ? String(password).trim() : '',
+      flagJudol: flagJudol !== undefined ? Boolean(flagJudol) : false,
+      statusSite: statusSite !== undefined ? Boolean(statusSite) : true,
+      lastUpdatedBy: lastUpdatedBy || req.user?.fullName || req.user?.name || 'system',
+      lastUpdateDate: lastUpdateDate ? new Date(lastUpdateDate) : now
+    });
+
+    res.status(201).json(created);
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal simpan task', error: err.message });
+  }
+});
+
+// API: Update Task
+app.put('/api/tasks/:id', async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'ID tidak valid' });
+  }
+
+  try {
+    const {
+      taskDate,
+      pic,
+      url,
+      title,
+      username,
+      password,
+      flagJudol,
+      statusSite,
+      lastUpdatedBy,
+      lastUpdateDate
+    } = req.body;
+
+    if (url !== undefined && !String(url).trim()) {
+      return res.status(400).json({ message: 'Judol site wajib diisi.' });
+    }
+
+    const updatePayload = {
+      lastUpdatedBy: lastUpdatedBy || req.user?.fullName || req.user?.name || 'system',
+      lastUpdateDate: lastUpdateDate ? new Date(lastUpdateDate) : new Date()
+    };
+
+    if (taskDate !== undefined) updatePayload.taskDate = taskDate ? new Date(taskDate) : null;
+    if (pic !== undefined) updatePayload.pic = String(pic).trim();
+    if (url !== undefined) updatePayload.url = String(url).trim();
+    if (title !== undefined) updatePayload.title = String(title).trim();
+    if (username !== undefined) updatePayload.username = String(username).trim();
+    if (password !== undefined) updatePayload.password = String(password).trim();
+    if (flagJudol !== undefined) updatePayload.flagJudol = Boolean(flagJudol);
+    if (statusSite !== undefined) updatePayload.statusSite = Boolean(statusSite);
+
+    const updated = await TaskModel.findByIdAndUpdate(id, updatePayload, { new: true });
+    if (!updated) return res.status(404).json({ message: 'Data task tidak ditemukan' });
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal update task', error: err.message });
+  }
+});
+
+// API: Hapus Task
+app.delete('/api/tasks/:id', async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'ID tidak valid' });
+  }
+
+  try {
+    const deleted = await TaskModel.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: 'Data task tidak ditemukan' });
+
+    res.json({ message: 'Task berhasil dihapus' });
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal hapus task', error: err.message });
+  }
+});
+
 // Fungsi untuk mengonversi Excel serial date ke format JavaScript Date
 // function convertExcelSerialDate(serialDate) {
 //   if (!serialDate || serialDate === "null") return null; // Jika kosong atau "null" sebagai string, set ke null
@@ -543,549 +807,6 @@ app.get('/api/url/export', async (req, res) => {
   }
 });
 
-
-// API: Get semua data Rekening
-app.get('/api/rekening', async (req, res) => {
-  try {
-    const data = await RekModel.find();
-
-    // Konversi buffer GambarWeb ke base64 string
-    const formatted = data.map(item => {
-      const plain = item.toObject();
-      if (plain.GambarWeb && plain.GambarWeb.buffer) {
-        plain.GambarWeb = `data:image/png;base64,${plain.GambarWeb.buffer.toString("base64")}`;
-      } else {
-        plain.GambarWeb = null;
-      }
-      return plain;
-    });
-
-    res.json(formatted);
-  } catch (err) {
-    res.status(500).json({ message: 'Error ambil data', error: err });
-  }
-});
-
-
-// Update Rekening Status by ID (block)
-app.put('/api/rekening/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { StatusRekening, DateBlocked } = req.body;
-
-    const updated = await RekModel.findByIdAndUpdate(id, {
-      StatusRekening,
-      DateBlocked
-    }, { new: true });
-
-    if (!updated) {
-      return res.status(404).json({ message: 'Rekening not found' });
-    }
-
-    res.json(updated);
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating rekening', error: error.message });
-  }
-});
-
-// Delete Rekening by ID
-app.delete('/api/rekening/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deleted = await RekModel.findByIdAndDelete(id);
-
-    if (!deleted) {
-      return res.status(404).json({ message: 'Rekening not found' });
-    }
-
-    res.json({ message: 'Rekening deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error deleting rekening', error: error.message });
-  }
-});
-
-function normalizeNoRekening(noRekening) {
-  if (!noRekening) return null;
-  return noRekening.trim().replace(/\s+/g, ' ');
-}
-function buildSetFields(item) {
-  const setFields = {};
-
-  if ('url' in item) {
-    setFields.url = item.url?.trim() || null;
-  }
-  if ('bank' in item) {
-    setFields.bank = item.bank?.trim() || null;
-  }
-  if ('NoRekening' in item) {
-    const cleaned = normalizeNoRekening(item.NoRekening);
-    setFields.NoRekening = cleaned;
-    setFields.NormalizedNoRekening = cleaned?.toLowerCase();  // For case-insensitive
-  }
-
-  if ('DateFound' in item) {
-    setFields.DateFound = item.DateFound ? new Date(item.DateFound) : null;
-  }
-  if ('DateBlocked' in item) {
-    setFields.DateBlocked = item.DateBlocked ? new Date(item.DateBlocked) : null;
-  }
-  if ('StatusRekening' in item) {
-    setFields.StatusRekening = (typeof item.StatusRekening === 'boolean') ? item.StatusRekening : false;
-  }
-  if ('GambarWeb' in item && item.GambarWeb) {
-    setFields.GambarWeb = item.GambarWeb;
-  }
-
-  return setFields;
-}
-// API: Bulk insert/update Rekening with partial upsert (like /url/bulk)
-app.post('/api/rekening/bulk', async (req, res) => {
-  try {
-    const { data } = req.body;
-    if (!Array.isArray(data) || data.length === 0) {
-      return res.status(400).json({ message: "Data harus berupa array dan tidak boleh kosong." });
-    }
-
-    console.log("=== Incoming Data ===", JSON.stringify(data, null, 2));
-
-    // 1️⃣ Ambil semua NoRekening dari DB
-    const allExistingDocs = await RekModel.find({}, { NoRekening: 1 }).lean();
-    const existingSet = new Set(
-      allExistingDocs
-        .map(doc => normalizeNoRekening(doc.NoRekening)?.toLowerCase())
-        .filter(v => !!v)
-    );
-
-    // 2️⃣ Build bulkOps
-    const bulkOps = data
-      .filter(item => item.NoRekening != null)
-      .map(item => {
-        const normalized = normalizeNoRekening(item.NoRekening);
-        const normalizedLower = normalized?.toLowerCase();
-
-        if (!normalizedLower) return null;
-
-        // 3️⃣ Only build op if new or will update existing
-        if (existingSet.has(normalizedLower)) {
-          console.log(`UPDATE mode for: ${normalized}`);
-        } else {
-          console.log(`INSERT mode for: ${normalized}`);
-          existingSet.add(normalizedLower);  // prevent dupe in same upload
-        }
-
-        return {
-          updateOne: {
-            filter: { NoRekening: normalized },
-            update: { $set: buildSetFields({ ...item, NoRekening: normalized }) },
-            upsert: true
-          }
-        };
-      })
-      .filter(Boolean);
-
-    console.log("=== Bulk Operations ===", JSON.stringify(bulkOps, null, 2));
-
-    // 4️⃣ Execute
-    const result = await RekModel.bulkWrite(bulkOps);
-    console.log("=== BulkWrite Result ===", result);
-
-    res.status(200).json({
-      message: "Upload dan update data rekening berhasil",
-      insertedCount: result.upsertedCount,
-      modifiedCount: result.modifiedCount,
-      matchedCount: result.matchedCount
-    });
-  } catch (error) {
-    console.error("Error saat upload/update rekening:", error);
-    res.status(500).json({
-      message: "Gagal upload/update data rekening",
-      error: error.message
-    });
-  }
-});
-
-
-// API: Bulk export Rekening
-app.get('/api/rekening/export', async (req, res) => {
-  try {
-    const data = await RekModel.find().lean();
-
-    if (!data || data.length === 0) {
-      return res.status(404).json({ message: "Tidak ada data untuk diexport." });
-    }
-
-    // Mapping jadi mirip /api/url/export style
-    const exportRows = data.map(item => ({
-      URL: item.url || '',
-      Bank: item.bank || '',
-      'No Rek': item.NoRekening ?? '',
-      'Date Found': item.DateFound ? new Date(item.DateFound) : '',
-      'Date Blocked': item.DateBlocked ? new Date(item.DateBlocked) : '',
-      'Status Rekening': item.StatusRekening === true ? 'Blocked' : 'Active'
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(exportRows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'RekeningExport');
-
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
-    res.setHeader('Content-Disposition', `attachment; filename="data_rekening_export_${new Date().toISOString().slice(0, 10)}.xlsx"`);
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buffer);
-
-  } catch (error) {
-    console.error('Error saat export rekening:', error);
-    res.status(500).json({ message: "Gagal export data rekening", error: error.message });
-  }
-});
-
-
-// API: Fetch all QRIS data
-app.get('/api/qris', async (req, res) => {
-  try {
-    const qrisList = await QRISModel.find();
-
-    const result = qrisList.map(item => {
-      const plain = item.toObject();
-      if (plain.GambarQRIS && plain.GambarQRIS.buffer) {
-        plain.GambarQRIS = `data:image/png;base64,${plain.GambarQRIS.buffer.toString("base64")}`;
-      } else {
-        plain.GambarQRIS = null;
-      }
-      return plain;
-    });
-
-    res.json(result);
-  } catch (error) {
-    console.error("Error fetching QRIS data:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// API: Block QRIS per ID
-app.put('/api/qris/:id/block', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Cari data QRIS berdasarkan ID
-    const qris = await QRISModel.findById(id);
-
-    if (!qris) {
-      return res.status(404).json({ message: 'QRIS data not found.' });
-    }
-
-    // Update status QRIS menjadi "true" (blocked)
-    qris.StatusQRIS = true;
-    qris.DateBlocked = new Date(); // Optional: update tanggal blokir ke sekarang
-
-    // Simpan perubahan
-    await qris.save();
-
-    res.status(200).json({ message: 'QRIS successfully blocked.', qris });
-  } catch (error) {
-    console.error('Error blocking QRIS:', error);
-    res.status(500).json({ message: 'Failed to block QRIS', error: error.message });
-  }
-});
-
-app.post('/api/qris/upload', async (req, res) => {
-  try {
-    const { data } = req.body;
-
-    if (!Array.isArray(data) || data.length === 0) {
-      return res.status(400).json({ message: "Data harus berupa array dan tidak boleh kosong." });
-    }
-
-    // Step 1: Normalisasi
-    const normalizedData = data
-      .map(item => ({
-        url: (item.url || "").trim(),
-        bank: (item.bank || "").trim(),
-        NoQRIS: item.NoQRIS ? String(item.NoQRIS).trim() : "",
-        DateFound: item.DateFound ? new Date(item.DateFound) : null,
-        DateBlocked: item.DateBlocked ? new Date(item.DateBlocked) : null,
-        StatusQRIS: item.StatusQRIS === "Blocked" ? true : item.StatusQRIS === "Active" ? false : Boolean(item.StatusQRIS),
-        GambarQRIS: item.GambarQRIS || item.gambarQRIS || ""
-      }))
-      .filter(item => item.NoQRIS);  // Buang yang NoQRIS kosong
-
-    if (normalizedData.length === 0) {
-      return res.status(400).json({ message: "Semua data tidak memiliki NoQRIS." });
-    }
-
-    // Step 2: Buang duplikat di dalam batch itu sendiri
-    const uniqueMap = new Map();
-    normalizedData.forEach(item => {
-      const key = item.NoQRIS.toLowerCase();
-      if (!uniqueMap.has(key)) {
-        uniqueMap.set(key, item);
-      }
-    });
-    const uniqueData = Array.from(uniqueMap.values());
-
-    // Step 3: Ambil yang sudah ada di DB
-    const existingDocs = await QRISModel.find({
-      NoQRIS: { $in: uniqueData.map(i => i.NoQRIS) }
-    }, { NoQRIS: 1 });
-
-    const existingSet = new Set(existingDocs.map(doc => doc.NoQRIS.toLowerCase()));
-
-    // Step 4: Filter hanya yang belum ada di DB
-    const toInsert = uniqueData.filter(item => !existingSet.has(item.NoQRIS.toLowerCase()));
-
-    // Step 5: Insert only new
-    if (toInsert.length > 0) {
-      await QRISModel.insertMany(toInsert);
-    }
-
-    // Step 6: Response
-    res.json({
-      message: `Upload selesai. Ditambahkan ${toInsert.length} data baru. ${existingSet.size} sudah ada di database dan diabaikan.`,
-      insertedCount: toInsert.length,
-      skippedCount: existingSet.size
-    });
-
-  } catch (error) {
-    console.error("Upload error:", error);
-    res.status(500).json({ message: "Server error during upload.", error: error.message });
-  }
-});
-
-
-// Endpoint untuk ekspor data QRIS ke Excel
-app.get('/api/qris/export', async (req, res) => {
-  try {
-    // Ambil semua data QRIS
-    const qrisData = await QRISModel.find().lean();
-
-    if (!qrisData || qrisData.length === 0) {
-      return res.status(404).json({ message: "Tidak ada data untuk diekspor." });
-    }
-
-    // Siapkan data untuk worksheet (tanpa GambarQRIS)
-    const dataForExcel = qrisData.map(item => ({
-      URL: item.url || '',
-      Bank: item.bank || '',
-      NoQRIS: item.NoQRIS || '',
-      DateFound: item.DateFound ? new Date(item.DateFound) : '',
-      DateBlocked: item.DateBlocked ? new Date(item.DateBlocked) : '',
-      StatusQRIS: item.StatusQRIS === true ? 'Blocked' : 'Active'
-    }));
-
-    // Buat worksheet dan workbook
-    const ws = XLSX.utils.json_to_sheet(dataForExcel);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'QRIS Data');
-
-    // Konversi ke buffer
-    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' });
-
-    // Kirim response
-    res.setHeader('Content-Disposition', `attachment; filename="qris_data_export_${new Date().toISOString().slice(0, 10)}.xlsx"`);
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(excelBuffer);
-
-  } catch (error) {
-    console.error("Export error:", error);
-    res.status(500).json({ message: "Gagal mengekspor data.", error: error.message });
-  }
-});
-
-
-// API: Fetch all Keyword data
-app.get('/api/keyword', async (req, res) => {
-  try {
-    const keywordData = await KeyModel.find(); // misal ambil data dari MongoDB
-    res.json(keywordData);
-  } catch (error) {
-    console.error('Error fetching Keyword data:', error);
-    res.status(500).send('Server error');
-  }
-});
-
-// API: Post Keyword data
-app.post("/api/keyword", async (req, res) => {
-  try {
-    const { keyword } = req.body;
-
-    if (!keyword || keyword.trim() === "") {
-      return res.status(400).json({ message: "Keyword tidak boleh kosong." });
-    }
-
-    const trimmedKeyword = keyword.trim();
-
-    // Cek apakah keyword sudah ada di database
-    const existing = await KeyModel.findOne({ keyword: trimmedKeyword });
-    if (existing) {
-      return res.status(409).json({ message: "Keyword sudah ada di database." });
-    }
-
-    const newKeyword = new KeyModel({ keyword: trimmedKeyword });
-    await newKeyword.save();
-
-    res.status(201).json({ message: "Keyword berhasil ditambahkan" });
-  } catch (error) {
-    console.error("Error saat tambah keyword:", error);
-    res.status(500).json({ message: "Gagal menambahkan keyword", error: error.message });
-  }
-});
-
-
-// API: Update keyword by ID
-app.put('/api/keyword/:id', async (req, res) => {
-  try {
-    const { keyword } = req.body;
-    const { id } = req.params;
-
-    if (!keyword || keyword.trim() === "") {
-      return res.status(400).json({ message: "Keyword tidak boleh kosong" });
-    }
-
-    const updated = await KeyModel.findByIdAndUpdate(id, { keyword }, { new: true });
-
-    if (!updated) {
-      return res.status(404).json({ message: "Keyword tidak ditemukan" });
-    }
-
-    res.json({ message: "Keyword berhasil diperbarui", data: updated });
-  } catch (err) {
-    console.error("Error updating keyword:", err);
-    res.status(500).json({ message: "Gagal memperbarui keyword" });
-  }
-});
-
-// API: Delete keyword by ID
-app.delete('/api/keyword/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deleted = await KeyModel.findByIdAndDelete(id);
-
-    if (!deleted) {
-      return res.status(404).json({ message: "Keyword tidak ditemukan." });
-    }
-
-    res.json({ message: "Keyword berhasil dihapus." });
-  } catch (error) {
-    console.error("Error delete keyword:", error);
-    res.status(500).json({ message: "Gagal menghapus keyword", error: error.message });
-  }
-});
-
-
-// API: Bulk insert Keyword dengan validasi duplicate
-app.post('/api/keyword/bulk', async (req, res) => {
-  try {
-    const { data } = req.body;
-
-    if (!Array.isArray(data)) {
-      return res.status(400).json({ message: "Data harus berupa array" });
-    }
-
-    // Ambil semua No Rekening dari data
-    const keywordList = data.map(item => item.keyword);
-
-    // Cari No Rekening yang sudah ada di database
-    const existingKeyword = await KeyModel.find({ keyword: { $in: keywordList } }).select('keyword');
-
-    const existingKeywordSet = new Set(existingKeyword.map(item => item.keyword));
-
-    // Filter hanya data yang belum ada
-    const dataToInsert = data.filter(item => !existingKeywordSet.has(item.keyword));
-
-    if (dataToInsert.length === 0) {
-      return res.status(409).json({ message: "Keyword sudah ada dalam database." });
-    }
-
-    // Insert yang baru saja
-    const inserted = await KeyModel.insertMany(dataToInsert);
-
-    res.status(201).json({
-      message: "Upload berhasil sebagian/bulk",
-      insertedCount: inserted.length,
-      skippedDuplicates: existingKeyword.length
-    });
-
-  } catch (error) {
-    console.error("Error saat upload keyword:", error);
-    res.status(500).json({
-      message: "Gagal upload data keyword",
-      error: error.message
-    });
-  }
-});
-
-
-// GET semua data URL
-app.get('/api/excludeCrawl', async (req, res) => {
-  try {
-    const data = await CrawlModel.find();
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ message: 'Gagal ambil data', error: err });
-  }
-});
-
-// POST: Tambah URL Exclude baru
-app.post('/api/excludeCrawl', async (req, res) => {
-  try {
-    const { url } = req.body;
-    console.log("URL yang diterima dari frontend:", url);  // Debug log
-    if (!url || typeof url !== 'string') {
-      return res.status(400).json({ message: 'URL tidak valid' });
-    }
-
-    const normalizedUrl = url.trim().toLowerCase();
-    console.log("Normalized URL:", normalizedUrl);
-
-    // Cek apakah URL sudah ada di excludeCrawl
-    const existing = await CrawlModel.findOne({ url: { $regex: `^${normalizedUrl}$`, $options: 'i' } });
-    if (existing) {
-      return res.status(409).json({ message: 'URL sudah ada di daftar exclude' });
-    }
-
-    // Simpan URL baru ke CrawlModel
-    const newUrl = new CrawlModel({ url: normalizedUrl, inputBy: 'System' });
-    await newUrl.save();
-    console.log("URL berhasil disimpan:", newUrl);
-
-    // Hapus data terkait di UrlModel
-    const deleted = await UrlModel.deleteMany({ url: { $regex: `^${normalizedUrl}$`, $options: 'i' } });
-    console.log("Deleted count:", deleted.deletedCount);
-
-    res.json({
-      message: 'URL berhasil ditambahkan dan data terkait dihapus',
-      data: newUrl,
-      deletedCount: deleted.deletedCount,
-    });
-  } catch (err) {
-    console.error('POST /excludeCrawl Error:', err);
-    res.status(500).json({ message: 'Gagal tambah URL', error: err });
-  }
-});
-
-
-
-// PUT: Edit URL Exclude berdasarkan ID
-app.put('/api/excludeCrawl/:id', async (req, res) => {
-  try {
-    const { url } = req.body;
-    const updated = await CrawlModel.findByIdAndUpdate(req.params.id, { url }, { new: true });
-    res.json({ message: 'URL berhasil diupdate', data: updated });
-  } catch (err) {
-    res.status(500).json({ message: 'Gagal update URL', error: err });
-  }
-});
-
-// DELETE: Hapus URL Exclude berdasarkan ID
-app.delete('/api/excludeCrawl/:id', async (req, res) => {
-  try {
-    await CrawlModel.findByIdAndDelete(req.params.id);
-    res.json({ message: 'URL berhasil dihapus' });
-  } catch (err) {
-    res.status(500).json({ message: 'Gagal hapus URL', error: err });
-  }
-});
 
 // GET: ambil config terbaru (anggap hanya satu dokumen yang relevan)
 // Ambil config (1 dokumen saja)
