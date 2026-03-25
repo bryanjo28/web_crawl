@@ -582,24 +582,6 @@ app.get('/api/tasks', async (req, res) => {
   }
 });
 
-// API: Get detail Task by ID
-app.get('/api/tasks/:id', async (req, res) => {
-  const { id } = req.params;
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ message: 'ID tidak valid' });
-  }
-
-  try {
-    const item = await TaskModel.findById(id);
-    if (!item) return res.status(404).json({ message: 'Data task tidak ditemukan' });
-
-    res.json(item);
-  } catch (err) {
-    res.status(500).json({ message: 'Gagal ambil detail task', error: err.message });
-  }
-});
-
 // API: Tambah Task
 app.post('/api/tasks', async (req, res) => {
   try {
@@ -686,6 +668,62 @@ app.put('/api/tasks/:id', async (req, res) => {
     res.json(updated);
   } catch (err) {
     res.status(500).json({ message: 'Gagal update task', error: err.message });
+  }
+});
+
+// API: Distribute Task ke PIC
+app.put('/api/tasks/distribute', requireAdmin, async (req, res) => {
+  try {
+    const { taskIds, pic } = req.body;
+
+    if (!Array.isArray(taskIds) || taskIds.length === 0) {
+      return res.status(400).json({ message: 'Pilih minimal satu task.' });
+    }
+
+    if (!pic || !String(pic).trim()) {
+      return res.status(400).json({ message: 'PIC wajib diisi.' });
+    }
+
+    const invalidIds = taskIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({ message: 'Ada ID task yang tidak valid.' });
+    }
+
+    const result = await TaskModel.updateMany(
+      { _id: { $in: taskIds } },
+      {
+        $set: {
+          pic: String(pic).trim(),
+          lastUpdatedBy: req.user?.fullName || req.user?.name || 'system',
+          lastUpdateDate: new Date()
+        }
+      }
+    );
+
+    res.json({
+      message: `${result.modifiedCount} task berhasil didistribusikan ke PIC ${String(pic).trim()}.`,
+      modifiedCount: result.modifiedCount
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal distribute task', error: err.message });
+  }
+});
+
+// API: Get detail Task by ID
+app.get('/api/tasks/:id', async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'ID tidak valid' });
+  }
+
+  try {
+    const item = await TaskModel.findById(id);
+    if (!item) return res.status(404).json({ message: 'Data task tidak ditemukan' });
+
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal ambil detail task', error: err.message });
   }
 });
 

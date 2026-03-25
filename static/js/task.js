@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', async function () {
-  await window.AppAuth.initPage();
+  const currentUser = await window.AppAuth.initPage();
 
   const API = '/api/tasks';
   const PAGE_SIZE = 10;
@@ -15,19 +15,24 @@ document.addEventListener('DOMContentLoaded', async function () {
   const paginationInfo = document.getElementById('pagination-info');
   const prevPageButton = document.getElementById('prev-page');
   const nextPageButton = document.getElementById('next-page');
+  const selectAllTasks = document.getElementById('selectAllTasks');
   const successAlert = document.getElementById('successAlert');
   const errorAlert = document.getElementById('errorAlert');
   const successMessage = document.getElementById('successMessage');
   const errorMessage = document.getElementById('errorMessage');
+  const isAdmin = currentUser.role === 'admin';
 
   let allTasks = [];
+  let picOptions = [];
   let currentPage = 1;
   let deleteTarget = null;
+  let selectedTaskIds = new Set();
 
   injectModals();
 
   const taskModal = new bootstrap.Modal(document.getElementById('taskModal'));
   const deleteModal = new bootstrap.Modal(document.getElementById('deleteTaskModal'));
+  const distributeModal = new bootstrap.Modal(document.getElementById('distributeTaskModal'));
 
   function injectModals() {
     const modalMarkup = `
@@ -47,7 +52,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 </div>
                 <div class="col-md-6">
                   <label for="taskPic" class="form-label">PIC</label>
-                  <input type="text" class="form-control" id="taskPic" />
+                  <select class="form-select" id="taskPic"></select>
                 </div>
                 <div class="col-md-6">
                   <label for="taskUrl" class="form-label">Judol Site</label>
@@ -102,6 +107,30 @@ document.addEventListener('DOMContentLoaded', async function () {
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
               <button type="button" class="btn btn-danger" id="confirmDeleteTaskBtn">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="distributeTaskModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Distribute Task</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="distributePic" class="form-label">PIC</label>
+                <select class="form-select" id="distributePic"></select>
+              </div>
+              <div class="text-muted small">
+                Task terpilih: <span id="selectedTaskCount">0</span>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-warning" id="confirmDistributeTaskBtn">Distribute</button>
             </div>
           </div>
         </div>
@@ -180,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     tbody.innerHTML = '';
 
     if (!pagedTasks.length) {
-      tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted">Tidak ada data task.</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="${isAdmin ? 13 : 12}" class="text-center text-muted">Tidak ada data task.</td></tr>`;
     } else {
       pagedTasks.forEach((task, index) => {
         const tr = document.createElement('tr');
@@ -204,6 +233,9 @@ document.addEventListener('DOMContentLoaded', async function () {
               <i class="fa fa-trash"></i>
             </button>
           </td>
+          <td class="text-center" style="${isAdmin ? '' : 'display:none;'}">
+            <input type="checkbox" class="task-select-checkbox" data-id="${task._id}" ${selectedTaskIds.has(task._id) ? 'checked' : ''} />
+          </td>
         `;
         tbody.appendChild(tr);
       });
@@ -220,19 +252,79 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.querySelectorAll('.delete-task-btn').forEach((button) => {
       button.addEventListener('click', () => openDeleteModal(button.dataset.id));
     });
+
+    document.querySelectorAll('.task-select-checkbox').forEach((checkbox) => {
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+          selectedTaskIds.add(checkbox.dataset.id);
+        } else {
+          selectedTaskIds.delete(checkbox.dataset.id);
+        }
+        syncSelectAllCheckbox();
+      });
+    });
+
+    syncSelectAllCheckbox();
   }
 
   function resetForm() {
     document.getElementById('taskModalTitle').textContent = 'Add Task';
     document.getElementById('taskId').value = '';
     document.getElementById('taskDate').value = '';
-    document.getElementById('taskPic').value = '';
+    document.getElementById('taskPic').innerHTML = buildPicSelectOptions('', true);
     document.getElementById('taskUrl').value = '';
     document.getElementById('taskTitle').value = '';
     document.getElementById('taskUsername').value = '';
     document.getElementById('taskPassword').value = '';
     document.getElementById('taskFlagJudol').value = 'true';
     document.getElementById('taskStatusSite').value = 'true';
+  }
+
+  function buildPicSelectOptions(selectedValue = '', includeEmptyOption = true) {
+    const normalizedSelectedValue = selectedValue || '';
+    const values = [...picOptions];
+    const options = [];
+
+    if (normalizedSelectedValue && !values.includes(normalizedSelectedValue)) {
+      values.unshift(normalizedSelectedValue);
+    }
+
+    if (includeEmptyOption) {
+      options.push('<option value="">Pilih PIC</option>');
+    }
+
+    values.forEach((pic) => {
+      const isSelected = pic === normalizedSelectedValue ? 'selected' : '';
+      options.push(`<option value="${pic}" ${isSelected}>${pic}</option>`);
+    });
+
+    return options.join('');
+  }
+
+  function populatePicSelects(selectedTaskPic = '', selectedDistributePic = '') {
+    document.getElementById('taskPic').innerHTML = buildPicSelectOptions(selectedTaskPic, true);
+    document.getElementById('distributePic').innerHTML = buildPicSelectOptions(selectedDistributePic, true);
+  }
+
+  async function loadPicOptions() {
+    if (isAdmin) {
+      const response = await window.AppAuth.authFetch('/api/users');
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Gagal mengambil data user.');
+      }
+
+      picOptions = result
+        .filter((user) => user.isActive)
+        .map((user) => user.fullName || user.name)
+        .filter(Boolean);
+    } else {
+      picOptions = [currentUser.fullName || currentUser.name].filter(Boolean);
+    }
+
+    picOptions = Array.from(new Set(picOptions)).sort((a, b) => a.localeCompare(b, 'id'));
+    populatePicSelects();
   }
 
   function openEditModal(id) {
@@ -242,7 +334,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('taskModalTitle').textContent = 'Edit Task';
     document.getElementById('taskId').value = task._id;
     document.getElementById('taskDate').value = toDateInputValue(task.taskDate);
-    document.getElementById('taskPic').value = task.pic || '';
+    document.getElementById('taskPic').innerHTML = buildPicSelectOptions(task.pic || '', true);
     document.getElementById('taskUrl').value = task.url || '';
     document.getElementById('taskTitle').value = task.title || '';
     document.getElementById('taskUsername').value = task.username || '';
@@ -270,7 +362,71 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     allTasks = result;
+    selectedTaskIds = new Set([...selectedTaskIds].filter((id) => allTasks.some((task) => task._id === id)));
     renderTasks();
+  }
+
+  function syncSelectAllCheckbox() {
+    const visibleCheckboxes = Array.from(document.querySelectorAll('.task-select-checkbox'));
+    if (!visibleCheckboxes.length) {
+      selectAllTasks.checked = false;
+      selectAllTasks.indeterminate = false;
+      return;
+    }
+
+    const checkedCount = visibleCheckboxes.filter((checkbox) => checkbox.checked).length;
+    selectAllTasks.checked = checkedCount === visibleCheckboxes.length;
+    selectAllTasks.indeterminate = checkedCount > 0 && checkedCount < visibleCheckboxes.length;
+  }
+
+  function openDistributeModal() {
+    if (!isAdmin) {
+      showAlert('error', 'Distribute hanya untuk admin.');
+      return;
+    }
+
+    if (!selectedTaskIds.size) {
+      showAlert('error', 'Pilih minimal satu task untuk didistribusikan.');
+      return;
+    }
+
+    document.getElementById('distributePic').innerHTML = buildPicSelectOptions('', true);
+    document.getElementById('selectedTaskCount').textContent = String(selectedTaskIds.size);
+    distributeModal.show();
+  }
+
+  async function distributeTasks() {
+    const pic = document.getElementById('distributePic').value.trim();
+
+    if (!pic) {
+      showAlert('error', 'PIC wajib diisi.');
+      return;
+    }
+
+    try {
+      const response = await window.AppAuth.authFetch(`${API}/distribute`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          taskIds: Array.from(selectedTaskIds),
+          pic
+        })
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Gagal distribute task.');
+      }
+
+      distributeModal.hide();
+      selectedTaskIds.clear();
+      await loadTasks();
+      showAlert('success', result.message || 'Task berhasil didistribusikan.');
+    } catch (error) {
+      showAlert('error', error.message);
+    }
   }
 
   async function saveTask() {
@@ -359,6 +515,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   document.getElementById('saveTaskBtn').addEventListener('click', saveTask);
   document.getElementById('confirmDeleteTaskBtn').addEventListener('click', deleteTask);
+  document.getElementById('confirmDistributeTaskBtn').addEventListener('click', distributeTasks);
 
   addButton.addEventListener('click', () => {
     resetForm();
@@ -397,6 +554,19 @@ document.addEventListener('DOMContentLoaded', async function () {
     renderTasks();
   });
 
+  selectAllTasks.addEventListener('change', () => {
+    document.querySelectorAll('.task-select-checkbox').forEach((checkbox) => {
+      checkbox.checked = selectAllTasks.checked;
+      if (selectAllTasks.checked) {
+        selectedTaskIds.add(checkbox.dataset.id);
+      } else {
+        selectedTaskIds.delete(checkbox.dataset.id);
+      }
+    });
+
+    syncSelectAllCheckbox();
+  });
+
   exportButton.addEventListener('click', () => {
     try {
       exportTasks();
@@ -405,11 +575,15 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
   });
 
-  distributeButton.addEventListener('click', () => {
-    showAlert('error', 'Fitur distribute belum diintegrasikan.');
-  });
+  distributeButton.addEventListener('click', openDistributeModal);
+
+  if (!isAdmin) {
+    distributeButton.style.display = 'none';
+    selectAllTasks.closest('th').style.display = 'none';
+  }
 
   try {
+    await loadPicOptions();
     await loadTasks();
   } catch (error) {
     showAlert('error', error.message);
