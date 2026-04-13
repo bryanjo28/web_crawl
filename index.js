@@ -230,9 +230,9 @@ app.get('/user', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'pages/user.html'));
 });
 
-app.get('/config_web', requireAdmin, (req, res) => {
-  res.sendFile(path.join(__dirname, 'pages/config.html'));
-});
+// app.get('/config_web', requireAdmin, (req, res) => {
+//   res.sendFile(path.join(__dirname, 'pages/config.html'));
+// });
 
 app.get('/site', (req, res) => {
   res.sendFile(path.join(__dirname, 'pages/site.html'));
@@ -848,35 +848,35 @@ app.get('/api/url/export', async (req, res) => {
 
 // GET: ambil config terbaru (anggap hanya satu dokumen yang relevan)
 // Ambil config (1 dokumen saja)
-app.get('/api/config', requireAdmin, async (req, res) => {
-  try {
-    const doc = await ConfigModel.findOne().lean();
-    if (!doc) return res.status(404).json({ message: 'Belum ada config' });
-    res.json(doc);
-  } catch (e) {
-    res.status(500).json({ message: e.message });
-  }
-});
+// app.get('/api/config', requireAdmin, async (req, res) => {
+//   try {
+//     const doc = await ConfigModel.findOne().lean();
+//     if (!doc) return res.status(404).json({ message: 'Belum ada config' });
+//     res.json(doc);
+//   } catch (e) {
+//     res.status(500).json({ message: e.message });
+//   }
+// });
 
 // Upsert config (buat kalau belum ada, update kalau sudah ada)
-app.put('/api/config', requireAdmin, async (req, res) => {
-  try {
-    const { maxUrlScan, maxFilter } = req.body;
-    if (maxUrlScan == null || maxFilter == null) {
-      return res.status(400).json({ message: 'maxUrlScan & maxFilter wajib diisi' });
-    }
+// app.put('/api/config', requireAdmin, async (req, res) => {
+//   try {
+//     const { maxUrlScan, maxFilter } = req.body;
+//     if (maxUrlScan == null || maxFilter == null) {
+//       return res.status(400).json({ message: 'maxUrlScan & maxFilter wajib diisi' });
+//     }
 
-    const updated = await ConfigModel.findOneAndUpdate(
-      {}, // selalu dokumen pertama
-      { maxUrlScan: Number(maxUrlScan), maxFilter: Number(maxFilter) },
-      { new: true, upsert: true, runValidators: true }
-    );
+//     const updated = await ConfigModel.findOneAndUpdate(
+//       {}, // selalu dokumen pertama
+//       { maxUrlScan: Number(maxUrlScan), maxFilter: Number(maxFilter) },
+//       { new: true, upsert: true, runValidators: true }
+//     );
 
-    res.json(updated);
-  } catch (e) {
-    res.status(500).json({ message: e.message });
-  }
-});
+//     res.json(updated);
+//   } catch (e) {
+//     res.status(500).json({ message: e.message });
+//   }
+// });
 
 // Helper format tanggal
 // function formatDateExport(date) {
