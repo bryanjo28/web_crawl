@@ -1,10 +1,20 @@
 const mongoose = require('mongoose');
 
 const siteSchema = new mongoose.Schema({
-  url: String,
+  judolSite: String,
+  title: String,
+  username: String,
+  password: String,
+  flagJudol: Boolean,
   status: Boolean,
-  lastScan: Date,
+  assetSite: String,
+  lastCrawl: Date,
+  lastGetAsset: Date,
   lastUpdateBy: String,
+  lastUpdateDate: Date,
+  // Legacy fields retained for backward compatibility with existing documents.
+  url: String,
+  lastScan: Date,
   lastUpdate: Date,
 });
 

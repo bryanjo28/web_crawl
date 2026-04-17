@@ -8,14 +8,15 @@ document.addEventListener('DOMContentLoaded', async function () {
   const picFilter = document.getElementById('picFilter');
   const searchButton = document.getElementById('searchButton');
   const addButton = document.getElementById('openAddTaskModal');
+  const uploadButton = document.getElementById('uploadTaskData');
   const exportButton = document.getElementById('exportTaskData');
+  const uploadLoading = document.getElementById('uploadTaskLoading');
   const distributeButton = document.getElementById('distributeTaskButton');
   const resetButton = document.querySelector('.resetButton');
   const tbody = document.querySelector('table tbody');
   const paginationInfo = document.getElementById('pagination-info');
   const prevPageButton = document.getElementById('prev-page');
   const nextPageButton = document.getElementById('next-page');
-  const selectAllTasks = document.getElementById('selectAllTasks');
   const successAlert = document.getElementById('successAlert');
   const errorAlert = document.getElementById('errorAlert');
   const successMessage = document.getElementById('successMessage');
@@ -24,15 +25,23 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   let allTasks = [];
   let picOptions = [];
+  let distributeUserOptions = [];
   let currentPage = 1;
   let deleteTarget = null;
-  let selectedTaskIds = new Set();
+  let availableDistributionCount = 0;
+  let distributionQueue = [];
+  let currentTemuanTask = null;
+  let temuanQueue = [];
+  let parsedUploadRows = [];
 
   injectModals();
 
   const taskModal = new bootstrap.Modal(document.getElementById('taskModal'));
   const deleteModal = new bootstrap.Modal(document.getElementById('deleteTaskModal'));
   const distributeModal = new bootstrap.Modal(document.getElementById('distributeTaskModal'));
+  const temuanModal = new bootstrap.Modal(document.getElementById('temuanTaskModal'));
+  const uploadModal = new bootstrap.Modal(document.getElementById('taskUploadModal'));
+  const uploadPreviewModal = new bootstrap.Modal(document.getElementById('taskUploadPreviewModal'));
 
   function injectModals() {
     const modalMarkup = `
@@ -113,24 +122,190 @@ document.addEventListener('DOMContentLoaded', async function () {
       </div>
 
       <div class="modal fade" id="distributeTaskModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">Distribute Task</h5>
+              <h5 class="modal-title">Popup Distribute</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-              <div class="mb-3">
-                <label for="distributePic" class="form-label">PIC</label>
-                <select class="form-select" id="distributePic"></select>
+              <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                  <label for="distributeTaskDate" class="form-label">Tasklist Date</label>
+                  <input type="date" class="form-control" id="distributeTaskDate" />
+                </div>
+                <div class="col-md-4">
+                  <label for="distributePicSelect" class="form-label">PIC</label>
+                  <select
+                    class="selectpicker form-control"
+                    id="distributePicSelect"
+                    data-live-search="true"
+                    data-size="6"
+                    data-width="100%"
+                    title="Cari user..."
+                  ></select>
+                </div>
+                <div class="col-md-4">
+                  <label for="distributeQuantity" class="form-label">Jumlah Judol Site</label>
+                  <input type="number" class="form-control" id="distributeQuantity" min="1" step="1" />
+                </div>
               </div>
-              <div class="text-muted small">
-                Task terpilih: <span id="selectedTaskCount">0</span>
+
+              <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+                <div class="small text-muted">
+                  Data tersedia: <span id="distributionAvailableCount">0</span> |
+                  Sisa setelah antrian: <span id="distributionRemainingCount">0</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-warning" id="addDistributionRowBtn">Add</button>
+              </div>
+
+              <div class="table-responsive">
+                <table class="table table-bordered table-hover text-sm mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Tasklist Date</th>
+                      <th>PIC</th>
+                      <th>Jumlah</th>
+                      <th class="text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="distributionQueueBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success" id="saveDistributionBtn">Save</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="temuanTaskModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Popup Tasklist User</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <input type="hidden" id="temuanTaskId" />
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">Judol Site</label>
+                  <input type="text" class="form-control" id="temuanTaskJudolSite" readonly />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Tasklist Date</label>
+                  <input type="text" class="form-control" id="temuanTaskDateDisplay" readonly />
+                </div>
+              </div>
+              <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                  <label for="temuanType" class="form-label">Jenis</label>
+                  <select class="form-select" id="temuanType">
+                    <option value="">Pilih jenis</option>
+                    <option value="rekening">rekening</option>
+                    <option value="qris">qris</option>
+                    <option value="va">va</option>
+                    <option value="sakuku">sakuku</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label for="temuanBankName" class="form-label">Nama Bank</label>
+                  <input type="text" class="form-control" id="temuanBankName" />
+                </div>
+                <div class="col-md-4">
+                  <label for="temuanIdentifierNo" class="form-label">Nomor</label>
+                  <input type="text" class="form-control" id="temuanIdentifierNo" />
+                </div>
+              </div>
+              <div class="row g-3 mt-1">
+                <div class="col-12">
+                  <label for="temuanTitleSite" class="form-label">Nama file</label>
+                  <input type="text" class="form-control" id="temuanTitleSite" readonly />
+                </div>
+              </div>
+              <div class="d-flex justify-content-end mt-3 mb-2">
+                <button type="button" class="btn btn-sm btn-warning" id="addTemuanRowBtn">Add</button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-bordered table-hover text-sm mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Jenis</th>
+                      <th>Nama Bank</th>
+                      <th>Nomor</th>
+                      <th>Nama File</th>
+                      <th class="text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="temuanQueueBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success" id="saveTemuanBtn">Save</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="taskUploadModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Upload Task</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <label for="taskUploadFile" class="form-label">File Excel</label>
+              <input type="file" class="form-control" id="taskUploadFile" accept=".xlsx,.xls,.csv" />
+              <div class="form-text">
+                Header Excel: Tasklist Date, PIC, Judol Site, Title Judol, Username, Password, Flag Judol, Status, Last Update By, Last Update Date.
               </div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-              <button type="button" class="btn btn-warning" id="confirmDistributeTaskBtn">Distribute</button>
+              <button type="button" class="btn btn-primary" id="previewTaskUploadBtn">Preview</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="taskUploadPreviewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Preview Upload Task</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="table-responsive">
+                <table class="table table-bordered table-hover text-sm mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>No</th>
+                      <th>Tasklist Date</th>
+                      <th>PIC</th>
+                      <th>Judol Site</th>
+                      <th>Title Judol</th>
+                      <th>Username</th>
+                      <th>Password</th>
+                      <th>Flag Judol</th>
+                      <th>Status</th>
+                      <th>Last Update By</th>
+                      <th>Last Update Date</th>
+                    </tr>
+                  </thead>
+                  <tbody id="taskUploadPreviewBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-success" id="confirmTaskUploadBtn">Submit Data</button>
             </div>
           </div>
         </div>
@@ -178,17 +353,188 @@ document.addEventListener('DOMContentLoaded', async function () {
     return date.toISOString().slice(0, 10);
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function normalizeHeaderKey(value) {
+    return String(value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/[^a-z0-9 ]/g, '');
+  }
+
+  function getSpreadsheetValue(row, ...keys) {
+    const normalizedRow = Object.entries(row || {}).reduce((acc, [key, value]) => {
+      acc[normalizeHeaderKey(key)] = value;
+      return acc;
+    }, {});
+
+    for (const key of keys) {
+      const value = normalizedRow[normalizeHeaderKey(key)];
+      if (value !== undefined && value !== null && value !== '') {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
+  function mapUploadRow(row) {
+    return {
+      taskDate: getSpreadsheetValue(row, 'Tasklist Date', 'TaskDate'),
+      pic: String(getSpreadsheetValue(row, 'PIC')).trim(),
+      url: String(getSpreadsheetValue(row, 'Judol Site', 'JudolSite', 'URL')).trim(),
+      title: String(getSpreadsheetValue(row, 'Title Judol', 'TitleJudol', 'Title')).trim(),
+      username: String(getSpreadsheetValue(row, 'Username')).trim(),
+      password: String(getSpreadsheetValue(row, 'Password')).trim(),
+      flagJudol: getSpreadsheetValue(row, 'Flag Judol', 'FlagJudol'),
+      statusSite: getSpreadsheetValue(row, 'Status', 'Status Site'),
+      lastUpdatedBy: String(getSpreadsheetValue(row, 'Last Update By', 'LastUpdatedBy')).trim(),
+      lastUpdateDate: getSpreadsheetValue(row, 'Last Update Date', 'LastUpdatedDate')
+    };
+  }
+
+  function renderUploadPreview() {
+    const previewBody = document.getElementById('taskUploadPreviewBody');
+    previewBody.innerHTML = '';
+
+    if (!parsedUploadRows.length) {
+      previewBody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">Belum ada data upload task.</td></tr>';
+      return;
+    }
+
+    parsedUploadRows.forEach((row, index) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${escapeHtml(row.taskDate || '-')}</td>
+        <td>${escapeHtml(row.pic || '-')}</td>
+        <td>${escapeHtml(row.url || '-')}</td>
+        <td>${escapeHtml(row.title || '-')}</td>
+        <td>${escapeHtml(row.username || '-')}</td>
+        <td>${escapeHtml(row.password || '-')}</td>
+        <td>${escapeHtml(row.flagJudol || '-')}</td>
+        <td>${escapeHtml(row.statusSite || '-')}</td>
+        <td>${escapeHtml(row.lastUpdatedBy || '-')}</td>
+        <td>${escapeHtml(row.lastUpdateDate || '-')}</td>
+      `;
+      previewBody.appendChild(tr);
+    });
+  }
+
+  async function previewUploadFile() {
+    const fileInput = document.getElementById('taskUploadFile');
+    const file = fileInput.files[0];
+
+    if (!file) {
+      showAlert('error', 'Pilih file Excel terlebih dahulu.');
+      return;
+    }
+
+    const extension = file.name.split('.').pop().toLowerCase();
+    if (!['xlsx', 'xls', 'csv'].includes(extension)) {
+      showAlert('error', 'Format file harus .xlsx, .xls, atau .csv.');
+      return;
+    }
+
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const jsonRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+    parsedUploadRows = jsonRows.map(mapUploadRow).filter((row) =>
+      Object.values(row).some((value) => String(value ?? '').trim() !== '')
+    );
+
+    if (!parsedUploadRows.length) {
+      showAlert('error', 'Data Excel kosong atau header tidak sesuai.');
+      return;
+    }
+
+    renderUploadPreview();
+    uploadModal.hide();
+    uploadPreviewModal.show();
+  }
+
+  async function submitUpload() {
+    if (!parsedUploadRows.length) {
+      showAlert('error', 'Tidak ada data upload task untuk dikirim.');
+      return;
+    }
+
+    uploadLoading.style.display = 'inline-block';
+
+    try {
+      const response = await window.AppAuth.authFetch(`${API}/upload`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          items: parsedUploadRows
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || 'Gagal upload data task.');
+      }
+
+      uploadPreviewModal.hide();
+      document.getElementById('taskUploadFile').value = '';
+      parsedUploadRows = [];
+      await loadTasks();
+      showAlert('success', result.message || 'Upload task berhasil.');
+    } catch (error) {
+      showAlert('error', error.message);
+    } finally {
+      uploadLoading.style.display = 'none';
+    }
+  }
+
+  function normalizeFilePart(value) {
+    return String(value ?? '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-zA-Z0-9.-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  function buildTemuanFileName(task, item = {}) {
+    const parts = [
+      normalizeFilePart(task?.url || ''),
+      normalizeFilePart(item?.type || ''),
+      normalizeFilePart(item?.bankName || ''),
+      normalizeFilePart(item?.identifierNo || '')
+    ].filter(Boolean);
+
+    return parts.join('-');
+  }
+
+  function updateTemuanTitleSitePreview() {
+    const titleField = document.getElementById('temuanTitleSite');
+    titleField.value = buildTemuanFileName(currentTemuanTask, {
+      type: document.getElementById('temuanType').value.trim(),
+      bankName: document.getElementById('temuanBankName').value.trim(),
+      identifierNo: document.getElementById('temuanIdentifierNo').value.trim()
+    });
+  }
+
   function getFilteredTasks() {
     const taskDate = taskDateFilter.value;
     const pic = picFilter.value.trim().toLowerCase();
 
     return allTasks.filter((task) => {
-      const matchesTaskDate =
-        !taskDate || toDateInputValue(task.taskDate) === taskDate;
-
-      const matchesPic =
-        !pic || (task.pic || '').toLowerCase().includes(pic);
-
+      const matchesTaskDate = !taskDate || toDateInputValue(task.taskDate) === taskDate;
+      const matchesPic = !pic || (task.pic || '').toLowerCase().includes(pic);
       return matchesTaskDate && matchesPic;
     });
   }
@@ -209,21 +555,21 @@ document.addEventListener('DOMContentLoaded', async function () {
     tbody.innerHTML = '';
 
     if (!pagedTasks.length) {
-      tbody.innerHTML = `<tr><td colspan="${isAdmin ? 13 : 12}" class="text-center text-muted">Tidak ada data task.</td></tr>`;
+      tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted">Tidak ada data task.</td></tr>';
     } else {
       pagedTasks.forEach((task, index) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${startIndex + index + 1}</td>
           <td>${formatShortDate(task.taskDate)}</td>
-          <td>${task.pic || '-'}</td>
-          <td>${task.url || '-'}</td>
-          <td>${task.title || '-'}</td>
-          <td>${task.username || '-'}</td>
-          <td>${task.password || '-'}</td>
+          <td>${escapeHtml(task.pic || '-')}</td>
+          <td>${escapeHtml(task.url || '-')}</td>
+          <td>${escapeHtml(task.title || '-')}</td>
+          <td>${escapeHtml(task.username || '-')}</td>
+          <td>${escapeHtml(task.password || '-')}</td>
           <td>${task.flagJudol ? 'Y' : 'N'}</td>
           <td>${task.statusSite ? 'Active' : 'Inactive'}</td>
-          <td>${task.lastUpdatedBy || '-'}</td>
+          <td>${escapeHtml(task.lastUpdatedBy || '-')}</td>
           <td>${formatDate(task.lastUpdateDate)}</td>
           <td>
             <button class="btn btn-sm btn-warning me-1 edit-task-btn" data-id="${task._id}">
@@ -232,9 +578,6 @@ document.addEventListener('DOMContentLoaded', async function () {
             <button class="btn btn-sm btn-danger delete-task-btn" data-id="${task._id}">
               <i class="fa fa-trash"></i>
             </button>
-          </td>
-          <td class="text-center" style="${isAdmin ? '' : 'display:none;'}">
-            <input type="checkbox" class="task-select-checkbox" data-id="${task._id}" ${selectedTaskIds.has(task._id) ? 'checked' : ''} />
           </td>
         `;
         tbody.appendChild(tr);
@@ -246,25 +589,18 @@ document.addEventListener('DOMContentLoaded', async function () {
     nextPageButton.disabled = currentPage >= totalPages;
 
     document.querySelectorAll('.edit-task-btn').forEach((button) => {
-      button.addEventListener('click', () => openEditModal(button.dataset.id));
+      button.addEventListener('click', () => {
+        if (isAdmin) {
+          openEditModal(button.dataset.id);
+        } else {
+          openTemuanModal(button.dataset.id);
+        }
+      });
     });
 
     document.querySelectorAll('.delete-task-btn').forEach((button) => {
       button.addEventListener('click', () => openDeleteModal(button.dataset.id));
     });
-
-    document.querySelectorAll('.task-select-checkbox').forEach((checkbox) => {
-      checkbox.addEventListener('change', () => {
-        if (checkbox.checked) {
-          selectedTaskIds.add(checkbox.dataset.id);
-        } else {
-          selectedTaskIds.delete(checkbox.dataset.id);
-        }
-        syncSelectAllCheckbox();
-      });
-    });
-
-    syncSelectAllCheckbox();
   }
 
   function resetForm() {
@@ -295,15 +631,52 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     values.forEach((pic) => {
       const isSelected = pic === normalizedSelectedValue ? 'selected' : '';
-      options.push(`<option value="${pic}" ${isSelected}>${pic}</option>`);
+      options.push(`<option value="${escapeHtml(pic)}" ${isSelected}>${escapeHtml(pic)}</option>`);
     });
 
     return options.join('');
   }
 
-  function populatePicSelects(selectedTaskPic = '', selectedDistributePic = '') {
+  function populatePicSelects(selectedTaskPic = '') {
     document.getElementById('taskPic').innerHTML = buildPicSelectOptions(selectedTaskPic, true);
-    document.getElementById('distributePic').innerHTML = buildPicSelectOptions(selectedDistributePic, true);
+  }
+
+  function initializeDistributePicPicker() {
+    const select = document.getElementById('distributePicSelect');
+
+    if (window.jQuery && typeof window.jQuery.fn.selectpicker === 'function') {
+      const $select = window.jQuery(select);
+
+      if ($select.data('selectpicker')) {
+        $select.selectpicker('destroy');
+      }
+
+      $select.selectpicker({
+        container: '#distributeTaskModal',
+        liveSearch: true,
+        size: 6,
+        noneSelectedText: 'Cari user...'
+      });
+    }
+  }
+
+  function renderDistributePicOptions(selectedValue = '') {
+    const select = document.getElementById('distributePicSelect');
+    const options = ['<option value=""></option>'];
+
+    distributeUserOptions.forEach((pic) => {
+      const isSelected = pic === selectedValue ? 'selected' : '';
+      options.push(`<option value="${escapeHtml(pic)}" ${isSelected}>${escapeHtml(pic)}</option>`);
+    });
+
+    select.innerHTML = options.join('');
+    initializeDistributePicPicker();
+
+    if (window.jQuery && typeof window.jQuery.fn.selectpicker === 'function') {
+      window.jQuery(select).selectpicker('val', selectedValue || '');
+    } else {
+      select.value = selectedValue;
+    }
   }
 
   async function loadPicOptions() {
@@ -319,12 +692,20 @@ document.addEventListener('DOMContentLoaded', async function () {
         .filter((user) => user.isActive)
         .map((user) => user.fullName || user.name)
         .filter(Boolean);
+
+      distributeUserOptions = result
+        .filter((user) => user.isActive && user.role === 'user')
+        .map((user) => user.fullName || user.name)
+        .filter(Boolean);
     } else {
       picOptions = [currentUser.fullName || currentUser.name].filter(Boolean);
+      distributeUserOptions = [];
     }
 
     picOptions = Array.from(new Set(picOptions)).sort((a, b) => a.localeCompare(b, 'id'));
+    distributeUserOptions = Array.from(new Set(distributeUserOptions)).sort((a, b) => a.localeCompare(b, 'id'));
     populatePicSelects();
+    renderDistributePicOptions();
   }
 
   function openEditModal(id) {
@@ -353,6 +734,136 @@ document.addEventListener('DOMContentLoaded', async function () {
     deleteModal.show();
   }
 
+  function resetTemuanFormFields() {
+    document.getElementById('temuanType').value = '';
+    document.getElementById('temuanBankName').value = '';
+    document.getElementById('temuanIdentifierNo').value = '';
+    document.getElementById('temuanTitleSite').value = '';
+  }
+
+  function renderTemuanQueue() {
+    const tbodyTemuan = document.getElementById('temuanQueueBody');
+    tbodyTemuan.innerHTML = '';
+
+    if (!temuanQueue.length) {
+      tbodyTemuan.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Belum ada data temuan.</td></tr>';
+      return;
+    }
+
+    temuanQueue.forEach((item, index) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${escapeHtml(item.type)}</td>
+        <td>${escapeHtml(item.bankName)}</td>
+        <td>${escapeHtml(item.identifierNo)}</td>
+        <td>${escapeHtml(item.fileName)}</td>
+        <td class="text-center">
+          <button type="button" class="btn btn-sm btn-danger remove-temuan-row" data-index="${index}">
+            <i class="fa fa-trash"></i>
+          </button>
+        </td>
+      `;
+      tbodyTemuan.appendChild(row);
+    });
+
+    document.querySelectorAll('.remove-temuan-row').forEach((button) => {
+      button.addEventListener('click', () => {
+        temuanQueue.splice(Number(button.dataset.index), 1);
+        renderTemuanQueue();
+      });
+    });
+  }
+
+  function resetTemuanModal() {
+    currentTemuanTask = null;
+    temuanQueue = [];
+    document.getElementById('temuanTaskId').value = '';
+    document.getElementById('temuanTaskJudolSite').value = '';
+    document.getElementById('temuanTaskDateDisplay').value = '';
+    resetTemuanFormFields();
+    renderTemuanQueue();
+  }
+
+  function openTemuanModal(id) {
+    const task = allTasks.find((item) => item._id === id);
+    if (!task) return;
+
+    currentTemuanTask = task;
+    temuanQueue = [];
+    document.getElementById('temuanTaskId').value = task._id;
+    document.getElementById('temuanTaskJudolSite').value = task.url || '';
+    document.getElementById('temuanTaskDateDisplay').value = formatShortDate(task.taskDate);
+    resetTemuanFormFields();
+    updateTemuanTitleSitePreview();
+    renderTemuanQueue();
+    temuanModal.show();
+  }
+
+  function addTemuanRow() {
+    const type = document.getElementById('temuanType').value.trim();
+    const bankName = document.getElementById('temuanBankName').value.trim();
+    const identifierNo = document.getElementById('temuanIdentifierNo').value.trim();
+
+    if (!type) {
+      showAlert('error', 'Jenis wajib dipilih.');
+      return;
+    }
+
+    if (!bankName) {
+      showAlert('error', 'Nama bank wajib diisi.');
+      return;
+    }
+
+    if (!identifierNo) {
+      showAlert('error', 'Nomor wajib diisi.');
+      return;
+    }
+
+    temuanQueue.push({
+      type,
+      bankName,
+      identifierNo,
+      fileName: buildTemuanFileName(currentTemuanTask, { type, bankName, identifierNo })
+    });
+    resetTemuanFormFields();
+    renderTemuanQueue();
+  }
+
+  async function saveTemuanEntries() {
+    if (!currentTemuanTask) {
+      showAlert('error', 'Task tidak ditemukan.');
+      return;
+    }
+
+    if (!temuanQueue.length) {
+      showAlert('error', 'Tambahkan minimal satu data temuan.');
+      return;
+    }
+
+    try {
+      const response = await window.AppAuth.authFetch(`${API}/${currentTemuanTask._id}/temuan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          items: temuanQueue
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || 'Gagal menyimpan data temuan.');
+      }
+
+      temuanModal.hide();
+      resetTemuanModal();
+      showAlert('success', result.message || 'Data temuan berhasil disimpan.');
+    } catch (error) {
+      showAlert('error', error.message);
+    }
+  }
+
   async function loadTasks() {
     const response = await window.AppAuth.authFetch(API);
     const result = await response.json();
@@ -362,68 +873,152 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     allTasks = result;
-    selectedTaskIds = new Set([...selectedTaskIds].filter((id) => allTasks.some((task) => task._id === id)));
     renderTasks();
   }
 
-  function syncSelectAllCheckbox() {
-    const visibleCheckboxes = Array.from(document.querySelectorAll('.task-select-checkbox'));
-    if (!visibleCheckboxes.length) {
-      selectAllTasks.checked = false;
-      selectAllTasks.indeterminate = false;
-      return;
+  async function loadDistributionAvailability() {
+    const response = await window.AppAuth.authFetch(`${API}/distribution/availability`);
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Gagal mengambil ketersediaan data distribute.');
     }
 
-    const checkedCount = visibleCheckboxes.filter((checkbox) => checkbox.checked).length;
-    selectAllTasks.checked = checkedCount === visibleCheckboxes.length;
-    selectAllTasks.indeterminate = checkedCount > 0 && checkedCount < visibleCheckboxes.length;
+    availableDistributionCount = Number(result.availableCount) || 0;
+    updateDistributionSummary();
   }
 
-  function openDistributeModal() {
-    if (!isAdmin) {
-      showAlert('error', 'Distribute hanya untuk admin.');
-      return;
-    }
-
-    if (!selectedTaskIds.size) {
-      showAlert('error', 'Pilih minimal satu task untuk didistribusikan.');
-      return;
-    }
-
-    document.getElementById('distributePic').innerHTML = buildPicSelectOptions('', true);
-    document.getElementById('selectedTaskCount').textContent = String(selectedTaskIds.size);
-    distributeModal.show();
+  function updateDistributionSummary() {
+    const queuedCount = distributionQueue.reduce((sum, item) => sum + item.quantity, 0);
+    const remaining = Math.max(0, availableDistributionCount - queuedCount);
+    document.getElementById('distributionAvailableCount').textContent = String(availableDistributionCount);
+    document.getElementById('distributionRemainingCount').textContent = String(remaining);
   }
 
-  async function distributeTasks() {
-    const pic = document.getElementById('distributePic').value.trim();
+  function renderDistributionQueue() {
+    const queueBody = document.getElementById('distributionQueueBody');
+    queueBody.innerHTML = '';
+
+    if (!distributionQueue.length) {
+      queueBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Belum ada data distribute.</td></tr>';
+    } else {
+      distributionQueue.forEach((item, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${formatShortDate(item.taskDate)}</td>
+          <td>${escapeHtml(item.pic)}</td>
+          <td>${item.quantity}</td>
+          <td class="text-center">
+            <button type="button" class="btn btn-sm btn-danger remove-distribution-row" data-index="${index}">
+              <i class="fa fa-trash"></i>
+            </button>
+          </td>
+        `;
+        queueBody.appendChild(row);
+      });
+    }
+
+    document.querySelectorAll('.remove-distribution-row').forEach((button) => {
+      button.addEventListener('click', () => {
+        distributionQueue.splice(Number(button.dataset.index), 1);
+        renderDistributionQueue();
+        updateDistributionSummary();
+      });
+    });
+  }
+
+  function resetDistributionFormFields() {
+    document.getElementById('distributeTaskDate').value = '';
+    document.getElementById('distributeQuantity').value = '';
+    renderDistributePicOptions();
+  }
+
+  function resetDistributionModal() {
+    distributionQueue = [];
+    resetDistributionFormFields();
+    renderDistributionQueue();
+    updateDistributionSummary();
+  }
+
+  function addDistributionRow() {
+    const taskDate = document.getElementById('distributeTaskDate').value;
+    const pic = String(document.getElementById('distributePicSelect').value || '').trim();
+    const quantity = Number(document.getElementById('distributeQuantity').value);
+    const remaining = availableDistributionCount - distributionQueue.reduce((sum, item) => sum + item.quantity, 0);
+
+    if (!taskDate) {
+      showAlert('error', 'Tasklist Date distribute wajib diisi.');
+      return;
+    }
 
     if (!pic) {
-      showAlert('error', 'PIC wajib diisi.');
+      showAlert('error', 'PIC distribute wajib diisi.');
+      return;
+    }
+
+    if (!distributeUserOptions.includes(pic)) {
+      showAlert('error', 'PIC harus berasal dari user aktif.');
+      return;
+    }
+
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      showAlert('error', 'Jumlah task harus angka bulat lebih dari 0.');
+      return;
+    }
+
+    if (quantity > remaining) {
+      showAlert('error', `Jumlah task melebihi sisa data tersedia. Sisa saat ini ${remaining}.`);
+      return;
+    }
+
+    distributionQueue.push({ taskDate, pic, quantity });
+    resetDistributionFormFields();
+    renderDistributionQueue();
+    updateDistributionSummary();
+  }
+
+  async function openDistributeModal() {
+    if (!isAdmin) {
+      showAlert('error', 'Distribute hanya bisa dilakukan admin.');
+      return;
+    }
+
+    try {
+      await loadDistributionAvailability();
+      resetDistributionModal();
+      renderDistributePicOptions();
+      distributeModal.show();
+    } catch (error) {
+      showAlert('error', error.message);
+    }
+  }
+
+  async function saveDistributedTasks() {
+    if (!distributionQueue.length) {
+      showAlert('error', 'Tambahkan minimal satu baris distribute.');
       return;
     }
 
     try {
       const response = await window.AppAuth.authFetch(`${API}/distribute`, {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          taskIds: Array.from(selectedTaskIds),
-          pic
+          items: distributionQueue
         })
       });
-      const result = await response.json();
 
+      const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.message || 'Gagal distribute task.');
+        throw new Error(result.message || 'Gagal menyimpan distribusi task.');
       }
 
       distributeModal.hide();
-      selectedTaskIds.clear();
+      resetDistributionModal();
       await loadTasks();
-      showAlert('success', result.message || 'Task berhasil didistribusikan.');
+      showAlert('success', result.message || 'Distribusi task berhasil disimpan.');
     } catch (error) {
       showAlert('error', error.message);
     }
@@ -495,16 +1090,16 @@ document.addEventListener('DOMContentLoaded', async function () {
   function exportTasks() {
     const rows = getFilteredTasks().map((task, index) => ({
       No: index + 1,
-      TasklistDate: task.taskDate ? new Date(task.taskDate) : '',
+      'Tasklist Date': task.taskDate ? new Date(task.taskDate) : '',
       PIC: task.pic || '',
-      JudolSite: task.url || '',
-      TitleJudol: task.title || '',
+      'Judol Site': task.url || '',
+      'Title Judol': task.title || '',
       Username: task.username || '',
       Password: task.password || '',
-      FlagJudol: task.flagJudol ? 'Y' : 'N',
+      'Flag Judol': task.flagJudol ? 'Y' : 'N',
       Status: task.statusSite ? 'Active' : 'Inactive',
-      LastUpdateBy: task.lastUpdatedBy || '',
-      LastUpdateDate: task.lastUpdateDate ? new Date(task.lastUpdateDate) : ''
+      'Last Update By': task.lastUpdatedBy || '',
+      'Last Update Date': task.lastUpdateDate ? new Date(task.lastUpdateDate) : ''
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -515,11 +1110,25 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   document.getElementById('saveTaskBtn').addEventListener('click', saveTask);
   document.getElementById('confirmDeleteTaskBtn').addEventListener('click', deleteTask);
-  document.getElementById('confirmDistributeTaskBtn').addEventListener('click', distributeTasks);
+  document.getElementById('previewTaskUploadBtn').addEventListener('click', previewUploadFile);
+  document.getElementById('confirmTaskUploadBtn').addEventListener('click', submitUpload);
+  document.getElementById('addDistributionRowBtn').addEventListener('click', addDistributionRow);
+  document.getElementById('saveDistributionBtn').addEventListener('click', saveDistributedTasks);
+  document.getElementById('addTemuanRowBtn').addEventListener('click', addTemuanRow);
+  document.getElementById('saveTemuanBtn').addEventListener('click', saveTemuanEntries);
+  document.getElementById('temuanType').addEventListener('change', updateTemuanTitleSitePreview);
+  document.getElementById('temuanBankName').addEventListener('input', updateTemuanTitleSitePreview);
+  document.getElementById('temuanIdentifierNo').addEventListener('input', updateTemuanTitleSitePreview);
 
   addButton.addEventListener('click', () => {
     resetForm();
     taskModal.show();
+  });
+
+  uploadButton.addEventListener('click', () => {
+    document.getElementById('taskUploadFile').value = '';
+    parsedUploadRows = [];
+    uploadModal.show();
   });
 
   searchButton.addEventListener('click', () => {
@@ -554,19 +1163,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     renderTasks();
   });
 
-  selectAllTasks.addEventListener('change', () => {
-    document.querySelectorAll('.task-select-checkbox').forEach((checkbox) => {
-      checkbox.checked = selectAllTasks.checked;
-      if (selectAllTasks.checked) {
-        selectedTaskIds.add(checkbox.dataset.id);
-      } else {
-        selectedTaskIds.delete(checkbox.dataset.id);
-      }
-    });
-
-    syncSelectAllCheckbox();
-  });
-
   exportButton.addEventListener('click', () => {
     try {
       exportTasks();
@@ -578,8 +1174,10 @@ document.addEventListener('DOMContentLoaded', async function () {
   distributeButton.addEventListener('click', openDistributeModal);
 
   if (!isAdmin) {
+    addButton.style.display = 'none';
+    uploadButton.style.display = 'none';
+    exportButton.style.display = 'none';
     distributeButton.style.display = 'none';
-    selectAllTasks.closest('th').style.display = 'none';
   }
 
   try {

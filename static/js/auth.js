@@ -44,8 +44,11 @@ window.AppAuth = (() => {
   function applyRoleVisibility(user) {
     if (user.role === 'admin') return;
 
-    document.querySelectorAll('[data-role="admin"]').forEach((item) => {
-      item.remove();
+    document.querySelectorAll('.nav-item').forEach((item) => {
+      const role = item.getAttribute('data-role');
+      if (role !== 'shared') {
+        item.remove();
+      }
     });
   }
 

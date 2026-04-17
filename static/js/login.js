@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error(result.message || 'Login gagal.');
       }
 
-      window.location.href = result.user?.role === 'admin' ? '/' : '/';
+      window.location.href = result.user?.role === 'admin' ? '/user' : '/task';
     } catch (error) {
       errorBox.textContent = error.message;
       errorBox.classList.remove('d-none');

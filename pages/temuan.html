@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Temuan</title>
+  <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link href="/static/fontawesome/css/all.min.css" rel="stylesheet" />
+</head>
+
+<body>
+  <div class="container-fluid">
+    <div class="row min-vh-100">
+      <div class="col-md-2 bg-light sidebar py-3 border-end"></div>
+
+      <div class="col-md-10 p-4 content" id="content">
+        <h4 class="fw-bold">Temuan</h4>
+
+        <div class="mb-2 row">
+          <label for="search" class="col-sm-2 col-form-label">Search</label>
+          <div class="col-sm-3 pt-1">
+            <input type="text" id="search" class="form-control form-control-sm" placeholder="judol site / bank / nomor" />
+          </div>
+        </div>
+
+	        <div class="row mb-3">
+	          <div class="col-md-6 d-flex gap-2">
+	            <button type="button" class="btn btn-sm btn-primary" id="searchButton" style="display: none;">
+	              <i class="fa fa-search" aria-hidden="true"></i> Search
+	            </button>
+	            <button id="openAddTemuanModal" class="btn btn-sm btn-success">
+	              <i class="fa fa-plus"></i> Add
+	            </button>
+	            <button id="exportTemuan" type="button" class="btn btn-sm btn-secondary">
+	              <i class="fa fa-download" aria-hidden="true"></i> Download
+	            </button>
+          </div>
+        </div>
+
+        <div class="alert alert-danger alert-dismissible fade show" id="errorAlert" style="display: none">
+          <i class="fas fa-times-circle me-2"></i>
+          <span id="errorMessage">Gagal mengambil data temuan.</span>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <div class="alert alert-success alert-dismissible fade show" id="successAlert" style="display: none">
+          <i class="fas fa-check-circle me-2"></i>
+          <span id="successMessage">Data temuan berhasil dihapus.</span>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <div class="row mb-2" style="text-align: right">
+          <div class="col-sm-12">
+            <button class="btn btn-light resetButton">
+              <i class="fa fa-refresh" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover text-sm">
+            <thead class="table-light">
+              <tr>
+                <th>No</th>
+                <th>Judol Site</th>
+                <th>Task Date</th>
+                <th>Jenis</th>
+                <th>Nama Bank</th>
+                <th>Nomor</th>
+                <th>File Name</th>
+                <th>Title Site</th>
+                <th>Updated By</th>
+                <th>Updated Date</th>
+                <th id="temuanActionHeader" style="display: none;">Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="d-flex justify-content-center align-items-center gap-3 mt-3" id="pagination">
+          <span id="pagination-info" class="mx-2">Page 1 of 1</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+	  <div class="modal fade" id="deleteTemuanModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Delete Temuan</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          Hapus data temuan <strong id="deleteTemuanName">-</strong>?
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" id="confirmDeleteTemuanBtn">Delete</button>
+        </div>
+      </div>
+    </div>
+	  </div>
+
+	  <div class="modal fade" id="temuanModal" tabindex="-1" aria-hidden="true">
+	    <div class="modal-dialog modal-lg">
+	      <div class="modal-content">
+	        <div class="modal-header">
+	          <h5 class="modal-title">Add Temuan</h5>
+	          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+	        </div>
+	        <div class="modal-body">
+	          <div class="row g-3">
+	            <div class="col-md-6">
+	              <label for="temuanJudolSite" class="form-label">Judol Site</label>
+	              <input type="text" class="form-control" id="temuanJudolSite" />
+	            </div>
+	            <div class="col-md-6">
+	              <label for="temuanTaskDate" class="form-label">Task Date</label>
+	              <input type="datetime-local" class="form-control" id="temuanTaskDate" />
+	            </div>
+	            <div class="col-md-4">
+	              <label for="temuanType" class="form-label">Type</label>
+	              <input type="text" class="form-control" id="temuanType" />
+	            </div>
+	            <div class="col-md-4">
+	              <label for="temuanBankName" class="form-label">Bank Name</label>
+	              <input type="text" class="form-control" id="temuanBankName" />
+	            </div>
+	            <div class="col-md-4">
+	              <label for="temuanIdentifierNo" class="form-label">Identifier No</label>
+	              <input type="text" class="form-control" id="temuanIdentifierNo" />
+	            </div>
+	            <div class="col-md-6">
+	              <label for="temuanFileName" class="form-label">File Name</label>
+	              <input type="text" class="form-control" id="temuanFileName" />
+	            </div>
+	            <div class="col-md-6">
+	              <label for="temuanTitleSite" class="form-label">Title Site</label>
+	              <input type="text" class="form-control" id="temuanTitleSite" />
+	            </div>
+	          </div>
+	        </div>
+	        <div class="modal-footer">
+	          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+	          <button type="button" class="btn btn-primary" id="saveTemuanBtn">Save</button>
+	        </div>
+	      </div>
+	    </div>
+	  </div>
+
+	  <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
+	  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+	  <script src="/static/js/auth.js"></script>
+	  <script src="/static/js/temuan.js"></script>
+</body>
+
+</html>

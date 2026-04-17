@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   let allUsers = [];
   let deleteTarget = null;
   let editTarget = null;
+  const DEFAULT_USER_PASSWORD = 'bca123';
 
   function formatDate(value) {
     if (!value) return '-';
@@ -56,6 +57,22 @@ document.addEventListener('DOMContentLoaded', async function () {
 
       return matchesKeyword && matchesStatus;
     });
+  }
+
+  function syncPasswordField() {
+    const role = document.getElementById('role').value;
+    const passwordInput = document.getElementById('userPassword');
+
+    if (role === 'admin') {
+      passwordInput.disabled = false;
+      if (!passwordInput.value.trim()) {
+        passwordInput.value = DEFAULT_USER_PASSWORD;
+      }
+      return;
+    }
+
+    passwordInput.value = DEFAULT_USER_PASSWORD;
+    passwordInput.disabled = true;
   }
 
   function renderUsers() {
@@ -108,10 +125,12 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('userModalTitle').textContent = 'Add User';
     document.getElementById('userId').value = '';
     document.getElementById('userName').value = '';
-    document.getElementById('userPassword').value = '';
+    document.getElementById('userName').disabled = false;
+    document.getElementById('userPassword').value = DEFAULT_USER_PASSWORD;
     document.getElementById('fullName').value = '';
     document.getElementById('role').value = 'user';
     document.getElementById('userStatus').value = 'Active';
+    syncPasswordField();
   }
 
   function openEditModal(id) {
@@ -122,10 +141,12 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('userModalTitle').textContent = 'Edit User';
     document.getElementById('userId').value = user._id;
     document.getElementById('userName').value = user.name || '';
-    document.getElementById('userPassword').value = '';
+    document.getElementById('userName').disabled = true;
+    document.getElementById('userPassword').value = DEFAULT_USER_PASSWORD;
     document.getElementById('fullName').value = user.fullName || '';
     document.getElementById('role').value = user.role || 'user';
     document.getElementById('userStatus').value = user.isActive ? 'Active' : 'Inactive';
+    syncPasswordField();
     userModal.show();
   }
 
@@ -214,6 +235,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   document.getElementById('saveUserBtn').addEventListener('click', saveUser);
   document.getElementById('confirmDeleteUserBtn').addEventListener('click', deleteUser);
+  document.getElementById('role').addEventListener('change', syncPasswordField);
   document.getElementById('searchButton').addEventListener('click', renderUsers);
   document.querySelector('.resetButton').addEventListener('click', () => {
     searchInput.value = '';
