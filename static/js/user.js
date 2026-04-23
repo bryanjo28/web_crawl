@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', async function () {
   const currentUser = await window.AppAuth.initPage();
+  const PAGE_SIZE = 10;
 
   const userModal = new bootstrap.Modal(document.getElementById('userModal'));
   const deleteModal = new bootstrap.Modal(document.getElementById('deleteUserModal'));
@@ -12,10 +13,13 @@ document.addEventListener('DOMContentLoaded', async function () {
   const successMessage = document.getElementById('successMessage');
   const errorMessage = document.getElementById('errorMessage');
   const paginationInfo = document.getElementById('pagination-info');
+  const prevPageButton = document.getElementById('prev-page');
+  const nextPageButton = document.getElementById('next-page');
 
   let allUsers = [];
   let deleteTarget = null;
   let editTarget = null;
+  let currentPage = 1;
   const DEFAULT_USER_PASSWORD = 'bca123';
 
   function formatDate(value) {
@@ -60,35 +64,36 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
 
   function syncPasswordField() {
-    const role = document.getElementById('role').value;
     const passwordInput = document.getElementById('userPassword');
+    passwordInput.disabled = false;
+  }
 
-    if (role === 'admin') {
-      passwordInput.disabled = false;
-      if (!passwordInput.value.trim()) {
-        passwordInput.value = DEFAULT_USER_PASSWORD;
-      }
-      return;
-    }
-
-    passwordInput.value = DEFAULT_USER_PASSWORD;
-    passwordInput.disabled = true;
+  function ensurePageWithinRange(totalItems) {
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    return totalPages;
   }
 
   function renderUsers() {
     const users = getFilteredUsers();
+    const totalPages = ensurePageWithinRange(users.length);
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    const pagedUsers = users.slice(startIndex, startIndex + PAGE_SIZE);
     tbody.innerHTML = '';
 
-    if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Tidak ada data user.</td></tr>';
+    if (!pagedUsers.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Tidak ada data user.</td></tr>';
       paginationInfo.textContent = 'Page 1 of 1';
+      prevPageButton.disabled = true;
+      nextPageButton.disabled = true;
       return;
     }
 
-    users.forEach((user, index) => {
+    pagedUsers.forEach((user, index) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${index + 1}</td>
+        <td>${startIndex + index + 1}</td>
         <td>${user.name || '-'}</td>
         <td>${user.fullName || '-'}</td>
         <td>${user.isActive ? 'Active' : 'Inactive'}</td>
@@ -109,7 +114,9 @@ document.addEventListener('DOMContentLoaded', async function () {
       tbody.appendChild(tr);
     });
 
-    paginationInfo.textContent = 'Page 1 of 1';
+    paginationInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+    prevPageButton.disabled = currentPage <= 1;
+    nextPageButton.disabled = currentPage >= totalPages;
 
     document.querySelectorAll('.edit-user-btn').forEach((button) => {
       button.addEventListener('click', () => openEditModal(button.dataset.id));
@@ -142,7 +149,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('userId').value = user._id;
     document.getElementById('userName').value = user.name || '';
     document.getElementById('userName').disabled = true;
-    document.getElementById('userPassword').value = DEFAULT_USER_PASSWORD;
+    document.getElementById('userPassword').value = user.password || DEFAULT_USER_PASSWORD;
     document.getElementById('fullName').value = user.fullName || '';
     document.getElementById('role').value = user.role || 'user';
     document.getElementById('userStatus').value = user.isActive ? 'Active' : 'Inactive';
@@ -236,14 +243,35 @@ document.addEventListener('DOMContentLoaded', async function () {
   document.getElementById('saveUserBtn').addEventListener('click', saveUser);
   document.getElementById('confirmDeleteUserBtn').addEventListener('click', deleteUser);
   document.getElementById('role').addEventListener('change', syncPasswordField);
-  document.getElementById('searchButton').addEventListener('click', renderUsers);
+  const searchButton = document.getElementById('searchButton');
+  if (searchButton) {
+    searchButton.addEventListener('click', () => {
+      currentPage = 1;
+      renderUsers();
+    });
+  }
   document.querySelector('.resetButton').addEventListener('click', () => {
     searchInput.value = '';
     statusFilter.value = '';
+    currentPage = 1;
     renderUsers();
   });
-  searchInput.addEventListener('input', renderUsers);
-  statusFilter.addEventListener('change', renderUsers);
+  searchInput.addEventListener('input', () => {
+    currentPage = 1;
+    renderUsers();
+  });
+  statusFilter.addEventListener('change', () => {
+    currentPage = 1;
+    renderUsers();
+  });
+  prevPageButton.addEventListener('click', () => {
+    currentPage -= 1;
+    renderUsers();
+  });
+  nextPageButton.addEventListener('click', () => {
+    currentPage += 1;
+    renderUsers();
+  });
 
   await loadUsers();
 });

@@ -87,10 +87,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                   <label for="siteLastCrawl" class="form-label">Last Crawl</label>
                   <input type="datetime-local" class="form-control" id="siteLastCrawl" />
                 </div>
-                <div class="col-md-6">
-                  <label for="siteLastGetAsset" class="form-label">Last Get Asset</label>
-                  <input type="datetime-local" class="form-control" id="siteLastGetAsset" />
-                </div>
               </div>
             </div>
             <div class="modal-footer">
@@ -130,7 +126,7 @@ document.addEventListener('DOMContentLoaded', async function () {
               <label for="siteUploadFile" class="form-label">File Excel</label>
               <input type="file" class="form-control" id="siteUploadFile" accept=".xlsx,.xls,.csv" />
               <div class="form-text">
-                Header Excel yang didukung: Judol Site, Title, Username, Password, Flag Judol, Status, Last Crawl, Last Get Asset, Last Update By, Last Update Date.
+                Header Excel yang didukung: Judol Site, Title, Username, Password, Flag Judol, Status, Last Crawl, Last Update By, Last Update Date.
               </div>
             </div>
             <div class="modal-footer">
@@ -162,7 +158,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                       <th>Flag Judol</th>
                       <th>Status</th>
                       <th>Last Crawl</th>
-                      <th>Last Get Asset</th>
                       <th>Last Update By</th>
                       <th>Last Update Date</th>
                     </tr>
@@ -262,7 +257,6 @@ document.addEventListener('DOMContentLoaded', async function () {
       flagJudol: getSpreadsheetValue(row, 'Flag Judol', 'FlagJudol'),
       status: getSpreadsheetValue(row, 'Status'),
       lastCrawl: getSpreadsheetValue(row, 'Last Crawl', 'LastCrawl'),
-      lastGetAsset: getSpreadsheetValue(row, 'Last Get Asset', 'LastGetAsset'),
       lastUpdateBy: String(getSpreadsheetValue(row, 'Last Update By', 'LastUpdateBy')).trim(),
       lastUpdateDate: getSpreadsheetValue(row, 'Last Update Date', 'LastUpdateDate')
     };
@@ -273,7 +267,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     previewBody.innerHTML = '';
 
     if (!parsedUploadRows.length) {
-      previewBody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">Belum ada data upload.</td></tr>';
+      previewBody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Belum ada data upload.</td></tr>';
       return;
     }
 
@@ -288,7 +282,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         <td>${escapeHtml(row.flagJudol || '-')}</td>
         <td>${escapeHtml(row.status || '-')}</td>
         <td>${escapeHtml(row.lastCrawl || '-')}</td>
-        <td>${escapeHtml(row.lastGetAsset || '-')}</td>
         <td>${escapeHtml(row.lastUpdateBy || '-')}</td>
         <td>${escapeHtml(row.lastUpdateDate || '-')}</td>
       `;
@@ -414,7 +407,6 @@ document.addEventListener('DOMContentLoaded', async function () {
           <td>${site.flagJudol ? 'Y' : 'N'}</td>
           <td>${site.status ? 'Active' : 'Inactive'}</td>
           <td>${formatDate(site.lastCrawl)}</td>
-          <td>${formatDate(site.lastGetAsset)}</td>
           <td>${escapeHtml(site.lastUpdateBy || '-')}</td>
           <td>${formatDate(site.lastUpdateDate)}</td>
           <td>
@@ -453,7 +445,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('siteFlagJudol').value = 'true';
     document.getElementById('siteStatus').value = 'true';
     document.getElementById('siteLastCrawl').value = '';
-    document.getElementById('siteLastGetAsset').value = '';
   }
 
   function openEditModal(id) {
@@ -469,7 +460,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('siteFlagJudol').value = String(Boolean(site.flagJudol));
     document.getElementById('siteStatus').value = String(Boolean(site.status));
     document.getElementById('siteLastCrawl').value = toDateTimeLocal(site.lastCrawl);
-    document.getElementById('siteLastGetAsset').value = toDateTimeLocal(site.lastGetAsset);
     siteModal.show();
   }
 
@@ -503,8 +493,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       password: document.getElementById('sitePassword').value.trim(),
       flagJudol: document.getElementById('siteFlagJudol').value === 'true',
       status: document.getElementById('siteStatus').value === 'true',
-      lastCrawl: document.getElementById('siteLastCrawl').value || null,
-      lastGetAsset: document.getElementById('siteLastGetAsset').value || null
+      lastCrawl: document.getElementById('siteLastCrawl').value || null
     };
 
     if (!payload.judolSite) {
@@ -567,7 +556,6 @@ document.addEventListener('DOMContentLoaded', async function () {
       'Flag Judol': site.flagJudol ? 'Y' : 'N',
       'Status': site.status ? 'Active' : 'Inactive',
       'Last Crawl': site.lastCrawl ? new Date(site.lastCrawl) : '',
-      'Last Get Asset': site.lastGetAsset ? new Date(site.lastGetAsset) : '',
       'Last Update By': site.lastUpdateBy || '',
       'Last Update Date': site.lastUpdateDate ? new Date(site.lastUpdateDate) : ''
     }));

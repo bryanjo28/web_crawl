@@ -15,133 +15,136 @@
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 
-<body>
+<body class="dashboard-page">
   <div class="container-fluid">
     <div class="row min-vh-100">
-      <!-- Sidebar loaded dynamically via JavaScript -->
-      <div class="col-md-2 bg-light sidebar py-3 border-end">
-        <!-- Sidebar content will be dynamically loaded here -->
-      </div>
+      <div class="col-md-2 sidebar py-3 border-end"></div>
 
       <div class="col-md-10 p-4 content" id="content">
-        <h4 class="fw-bold">Judol Site</h4>
-        <!-- Filter Form -->
-        <div class="mb-2 row">
-          <label for="judolSiteFilter" class="col-sm-2 col-form-label">Judol Site</label>
-          <div class="col-sm-3 pt-1">
-            <input type="text" id="judolSiteFilter" class="form-control form-control-sm" placeholder="domain judol" />
-          </div>
-        </div>
-        <div class="mb-2 row">
-          <label for="titleFilter" class="col-sm-2 col-form-label">Title</label>
-          <div class="col-sm-3 pt-1">
-            <input type="text" id="titleFilter" class="form-control form-control-sm" placeholder="title judol" />
-          </div>
-        </div>
-        <div class="mb-2 row">
-          <label for="flagJudolFilter" class="col-sm-2 col-form-label">Flag Judol</label>
-          <div class="col-sm-3 pt-1">
-            <select id="flagJudolFilter" class="form-select form-select-sm">
-              <option value="">All Flag</option>
-              <option value="true">Y</option>
-              <option value="false">N</option>
-            </select>
-          </div>
-        </div>
-        <div class="mb-2 row">
-          <label for="statusFilter" class="col-sm-2 col-form-label">Status</label>
-          <div class="col-sm-3 pt-1">
-            <select id="statusFilter" class="form-select form-select-sm">
-              <option value="">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
-        </div>
-        <!--
-        <div class="mb-2 row">
-          <label for="assetSiteFilter" class="col-sm-2 col-form-label">Asset Site</label>
-          <div class="col-sm-3 pt-1">
-            <input type="text" id="assetSiteFilter" class="form-control form-control-sm" placeholder="asset site" />
-          </div>
-        </div>
-        -->
-        <!-- Buttons -->
-        <div class="row mb-3">
-          <div class="col-md-8 d-flex gap-2 flex-wrap">
-            <!-- tombol di toolbar -->
-            <button id="openAddModal" class="btn btn-sm btn-warning">
-              <i class="fa fa-plus"></i> Add
-            </button>
-            <button id="uploadData" type="button" class="btn btn-sm btn-success">
-              <i class="fa fa-upload" aria-hidden="true"></i> Upload
-              <span id="uploadLoading" style="display:none;">
-                <i class="fas fa-spinner fa-spin text-secondary ms-2"></i>
-              </span>
-            </button>
-            <button id="exportData" type="button" class="btn btn-sm btn-secondary">
-              <i class="fa fa-download" aria-hidden="true"></i> Download
-              <span id="exportLoading" style="display:none;">
-                <i class="fas fa-spinner fa-spin text-secondary ms-2"></i>
-              </span>
-            </button>
-          </div>
-        </div>
-        <!-- Alert Success -->
-        <div class="alert alert-success alert-dismissible fade show" id="successAlert" style="display: none">
-          <i class="fas fa-check-circle me-2"></i>
-          <span id="successMessage">Add New Site Success</span>
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
+        <div class="page-shell">
+          <section class="dashboard-hero mb-4">
+            <div>
+              <div class="dashboard-kicker">Site Monitoring</div>
+              <h4 class="fw-bold mb-2">Judol Site</h4>
+              <p class="mb-0">Pantau data site, status aktif, hasil crawl terakhir, dan kelola daftar domain dengan tampilan dashboard yang sama seperti halaman user dan task list.</p>
+            </div>
+            <div class="dashboard-hero-badge">
+              <i class="fa-solid fa-globe"></i>
+              <span>Site Control</span>
+            </div>
+          </section>
 
-        <!-- Alert Error -->
-        <div class="alert alert-danger alert-dismissible fade show" id="errorAlert" style="display: none">
-          <i class="fas fa-times-circle me-2"></i>
-          <span id="errorMessage">Failed to Add Site</span>
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        <div class="row mb-2" style="text-align: right">
-          <div class="col-sm-12">
-            <button class="btn btn-light resetButton">
-              <i class="fa fa-refresh" aria-hidden="true"></i>
-            </button>
+          <section class="dashboard-card mb-4">
+            <div class="dashboard-card-header">
+              <div>
+                <h5 class="mb-1">Filter & Action</h5>
+                <p class="dashboard-card-copy mb-0">Cari site berdasarkan domain, title, flag, atau status.</p>
+              </div>
+              <div class="dashboard-toolbar">
+                <button id="openAddModal" class="btn btn-warning dashboard-action-btn">
+                  <i class="fa fa-plus"></i> Add
+                </button>
+                <button id="uploadData" type="button" class="btn btn-success dashboard-action-btn">
+                  <i class="fa fa-upload" aria-hidden="true"></i> Upload
+                  <span id="uploadLoading" style="display:none;">
+                    <i class="fas fa-spinner fa-spin text-secondary ms-2"></i>
+                  </span>
+                </button>
+                <button id="exportData" type="button" class="btn btn-secondary dashboard-action-btn">
+                  <i class="fa fa-download" aria-hidden="true"></i> Download
+                  <span id="exportLoading" style="display:none;">
+                    <i class="fas fa-spinner fa-spin text-secondary ms-2"></i>
+                  </span>
+                </button>
+                <button class="btn btn-light resetButton dashboard-icon-btn" title="Reset filter">
+                  <i class="fa fa-refresh" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="row g-3 align-items-end">
+              <div class="col-md-4">
+                <label for="judolSiteFilter" class="form-label">Judol Site</label>
+                <input type="text" id="judolSiteFilter" class="form-control" placeholder="domain judol" />
+              </div>
+              <div class="col-md-4">
+                <label for="titleFilter" class="form-label">Title</label>
+                <input type="text" id="titleFilter" class="form-control" placeholder="title judol" />
+              </div>
+              <div class="col-md-2">
+                <label for="flagJudolFilter" class="form-label">Flag Judol</label>
+                <select id="flagJudolFilter" class="form-select">
+                  <option value="">All Flag</option>
+                  <option value="true">Y</option>
+                  <option value="false">N</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label for="statusFilter" class="form-label">Status</label>
+                <select id="statusFilter" class="form-select">
+                  <option value="">All Status</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <div class="alert alert-success alert-dismissible fade show" id="successAlert" style="display: none">
+            <i class="fas fa-check-circle me-2"></i>
+            <span id="successMessage">Add New Site Success</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
-        </div>
-        <div class="table-responsive">
-        <table class="table table-bordered table-hover text-sm align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>No</th>
-              <th>Judol Site</th>
-              <th>Title</th>
-              <th>Username</th>
-              <th>Password</th>
-              <th>Flag Judol</th>
-              <th>Status</th>
-              <!-- <th>Asset Site</th> -->
-              <th>Last Crawl</th>
-              <th>Last Get Asset</th>
-              <th>Last Update By</th>
-              <th>Last Update Date</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Data dari JS akan di-render di sini -->
-          </tbody>
-        </table>
-        </div>
-        <div class="d-flex justify-content-center align-items-center gap-3 mt-3" id="pagination">
-          <button id="prev-page" class="btn btn-outline-primary btn-sm">
-            <i class="fa fa-angle-left"></i>
-          </button>
-          <span id="pagination-info" class="mx-2">Page 1 of 1</span>
-          <button id="next-page" class="btn btn-outline-primary btn-sm">
-            <i class="fa fa-angle-right"></i>
-          </button>
+
+          <div class="alert alert-danger alert-dismissible fade show" id="errorAlert" style="display: none">
+            <i class="fas fa-times-circle me-2"></i>
+            <span id="errorMessage">Failed to Add Site</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+
+          <section class="dashboard-card table-card">
+            <div class="dashboard-card-header">
+              <div>
+                <h5 class="mb-1">Daftar Judol Site</h5>
+                <p class="dashboard-card-copy mb-0">Semua data site ditampilkan dengan histori crawl dan histori update terakhir.</p>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-bordered table-hover text-sm align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>No</th>
+                    <th>Judol Site</th>
+                    <th>Title</th>
+                    <th>Username</th>
+                    <th>Password</th>
+                    <th>Flag Judol</th>
+                    <th>Status</th>
+                    <th>Last Crawl</th>
+                    <th>Last Update By</th>
+                    <th>Last Update Date</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Data dari JS akan di-render di sini -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="d-flex justify-content-center align-items-center gap-3 mt-4" id="pagination">
+              <button id="prev-page" class="btn btn-outline-primary btn-sm">
+                <i class="fa fa-angle-left"></i>
+              </button>
+              <span id="pagination-info" class="mx-2">Page 1 of 1</span>
+              <button id="next-page" class="btn btn-outline-primary btn-sm">
+                <i class="fa fa-angle-right"></i>
+              </button>
+            </div>
+          </section>
         </div>
       </div>
-
     </div>
   </div>
 

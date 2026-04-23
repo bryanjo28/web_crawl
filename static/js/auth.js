@@ -1,4 +1,40 @@
 window.AppAuth = (() => {
+  const THEME_KEY = 'crawl_theme_preference';
+
+  function getPreferredTheme() {
+    const savedTheme = window.localStorage.getItem(THEME_KEY);
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      return savedTheme;
+    }
+
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  function updateThemeToggleLabel(theme = getPreferredTheme()) {
+    const toggleBtn = document.getElementById('themeToggleBtn');
+    if (!toggleBtn) return;
+
+    const icon = toggleBtn.querySelector('i');
+    const label = toggleBtn.querySelector('span');
+    const isDark = theme === 'dark';
+
+    if (icon) {
+      icon.className = isDark ? 'fa-regular fa-sun' : 'fa-regular fa-moon';
+    }
+
+    if (label) {
+      label.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+    }
+  }
+
+  function applyTheme(theme) {
+    const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', normalizedTheme);
+    document.body?.setAttribute('data-theme', normalizedTheme);
+    window.localStorage.setItem(THEME_KEY, normalizedTheme);
+    updateThemeToggleLabel(normalizedTheme);
+  }
+
   async function authFetch(url, options = {}) {
     const response = await fetch(url, options);
 
@@ -77,6 +113,16 @@ window.AppAuth = (() => {
     });
   }
 
+  function bindThemeToggle() {
+    const toggleBtn = document.getElementById('themeToggleBtn');
+    if (!toggleBtn) return;
+
+    toggleBtn.addEventListener('click', () => {
+      const nextTheme = getPreferredTheme() === 'dark' ? 'light' : 'dark';
+      applyTheme(nextTheme);
+    });
+  }
+
   async function initSidebar(user) {
     const sidebar = document.querySelector('.sidebar');
     if (!sidebar) return;
@@ -87,11 +133,14 @@ window.AppAuth = (() => {
     applyRoleVisibility(user);
     fillUserCard(user);
     bindSidebarToggle();
+    bindThemeToggle();
     bindLogout();
     markActiveMenu();
+    updateThemeToggleLabel();
   }
 
   async function initPage() {
+    applyTheme(getPreferredTheme());
     const user = await getCurrentUser();
     await initSidebar(user);
     return user;
@@ -99,6 +148,8 @@ window.AppAuth = (() => {
 
   return {
     initPage,
-    authFetch
+    authFetch,
+    applyTheme,
+    getPreferredTheme
   };
 })();

@@ -539,6 +539,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
   }
 
+  function getTodayDateInputValue() {
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    const localDate = new Date(now.getTime() - (offset * 60000));
+    return localDate.toISOString().slice(0, 10);
+  }
+
   function ensurePageWithinRange(totalItems) {
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
     if (currentPage > totalPages) currentPage = totalPages;
@@ -1131,10 +1138,12 @@ document.addEventListener('DOMContentLoaded', async function () {
     uploadModal.show();
   });
 
-  searchButton.addEventListener('click', () => {
-    currentPage = 1;
-    renderTasks();
-  });
+  if (searchButton) {
+    searchButton.addEventListener('click', () => {
+      currentPage = 1;
+      renderTasks();
+    });
+  }
 
   taskDateFilter.addEventListener('change', () => {
     currentPage = 1;
@@ -1147,7 +1156,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   });
 
   resetButton.addEventListener('click', () => {
-    taskDateFilter.value = '';
+    taskDateFilter.value = isAdmin ? '' : getTodayDateInputValue();
     picFilter.value = '';
     currentPage = 1;
     renderTasks();
@@ -1178,6 +1187,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     uploadButton.style.display = 'none';
     exportButton.style.display = 'none';
     distributeButton.style.display = 'none';
+    taskDateFilter.value = getTodayDateInputValue();
   }
 
   try {

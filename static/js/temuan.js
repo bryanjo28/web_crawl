@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', async function () {
   const currentUser = await window.AppAuth.initPage();
+  const PAGE_SIZE = 10;
 
   const API = '/api/temuan';
   const searchInput = document.getElementById('search');
@@ -8,6 +9,8 @@ document.addEventListener('DOMContentLoaded', async function () {
   const exportButton = document.getElementById('exportTemuan');
   const tbody = document.querySelector('table tbody');
   const paginationInfo = document.getElementById('pagination-info');
+  const prevPageButton = document.getElementById('prev-page');
+  const nextPageButton = document.getElementById('next-page');
   const successAlert = document.getElementById('successAlert');
   const successMessage = document.getElementById('successMessage');
   const errorAlert = document.getElementById('errorAlert');
@@ -19,6 +22,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   let allTemuan = [];
   let deleteTarget = null;
+  let currentPage = 1;
 
   function showSuccess(message) {
     successMessage.textContent = message;
@@ -93,20 +97,32 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
   }
 
+  function ensurePageWithinRange(totalItems) {
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    return totalPages;
+  }
+
   function renderTemuan() {
     const rows = getFilteredTemuan();
+    const totalPages = ensurePageWithinRange(rows.length);
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    const pagedRows = rows.slice(startIndex, startIndex + PAGE_SIZE);
     tbody.innerHTML = '';
 
-    if (!rows.length) {
+    if (!pagedRows.length) {
       tbody.innerHTML = `<tr><td colspan="${isAdmin ? 11 : 10}" class="text-center text-muted">Tidak ada data temuan.</td></tr>`;
       paginationInfo.textContent = 'Page 1 of 1';
+      prevPageButton.disabled = true;
+      nextPageButton.disabled = true;
       return;
     }
 
-    rows.forEach((item, index) => {
+    pagedRows.forEach((item, index) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${index + 1}</td>
+        <td>${startIndex + index + 1}</td>
         <td>${escapeHtml(item.judolSite || '-')}</td>
         <td>${formatDate(item.taskDate)}</td>
         <td>${escapeHtml(item.type || '-')}</td>
@@ -132,7 +148,9 @@ document.addEventListener('DOMContentLoaded', async function () {
       });
     }
 
-    paginationInfo.textContent = 'Page 1 of 1';
+    paginationInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+    prevPageButton.disabled = currentPage <= 1;
+    nextPageButton.disabled = currentPage >= totalPages;
   }
 
   function openDeleteModal(id) {
@@ -238,12 +256,26 @@ document.addEventListener('DOMContentLoaded', async function () {
     renderTemuan();
   }
 
-  searchInput.addEventListener('input', renderTemuan);
+  searchInput.addEventListener('input', () => {
+    currentPage = 1;
+    renderTemuan();
+  });
   document.getElementById('confirmDeleteTemuanBtn').addEventListener('click', deleteTemuan);
   document.getElementById('saveTemuanBtn').addEventListener('click', saveTemuan);
 
   resetButton.addEventListener('click', () => {
     searchInput.value = '';
+    currentPage = 1;
+    renderTemuan();
+  });
+
+  prevPageButton.addEventListener('click', () => {
+    currentPage -= 1;
+    renderTemuan();
+  });
+
+  nextPageButton.addEventListener('click', () => {
+    currentPage += 1;
     renderTemuan();
   });
 

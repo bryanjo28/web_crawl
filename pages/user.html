@@ -15,95 +15,111 @@
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 
-<body>
+<body class="dashboard-page">
   <div class="container-fluid">
     <div class="row min-vh-100">
-      <!-- Sidebar loaded dynamically via JavaScript -->
-      <div class="col-md-2 bg-light sidebar py-3 border-end">
-        <!-- Sidebar content will be dynamically loaded here -->
-      </div>
+      <div class="col-md-2 sidebar py-3 border-end"></div>
 
       <div class="col-md-10 p-4 content" id="content">
-        <h4 class="fw-bold">User Management</h4>
-        <!-- Filter Form -->
-        <div class="mb-2 row">
-          <label for="search" class="col-sm-2 col-form-label">Name</label>
-          <div class="col-sm-2 pt-1">
-            <input type="text" id="search" class="form-control form-control-sm" placeholder="slot" />
-          </div>
-        </div>
-        <div class="mb-2 row">
-          <label for="status" class="col-sm-2 col-form-label">Status</label>
-          <div class="col-sm-2 pt-1">
-            <select id="status" class="form-select form-select-sm">
-              <option value="">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
-        </div>
-        <!-- Buttons -->
-        <div class="row mb-3">
-          <div class="col-md-4 d-flex gap-2">
-            <button type="button" id="searchButton" class="btn btn-sm btn-primary" style="display: none;">
-              <i class="fa fa-search" aria-hidden="true"></i> Search
-            </button>
-            <!-- tombol di toolbar -->
-            <button id="openAddModal" class="btn btn-sm btn-warning">
-              <i class="fa fa-user-plus"></i> Add
-            </button>
-          </div>
-        </div>
-        <!-- Alert Success -->
-        <div class="alert alert-success alert-dismissible fade show" id="successAlert" style="display: none">
-          <i class="fas fa-check-circle me-2"></i>
-          <span id="successMessage">Add New User Success</span>
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
+        <div class="page-shell">
+          <section class="dashboard-hero mb-4">
+            <div>
+              <div class="dashboard-kicker">Admin Dashboard</div>
+              <h4 class="fw-bold mb-2">User Management</h4>
+              <p class="mb-0">Kelola akun admin dan user dengan tampilan panel yang lebih rapi, fokus, dan nyaman dipakai di light maupun dark mode.</p>
+            </div>
+            <div class="dashboard-hero-badge">
+              <i class="fa-solid fa-user-shield"></i>
+              <span>Role Control</span>
+            </div>
+          </section>
 
-        <!-- Alert Error -->
-        <div class="alert alert-danger alert-dismissible fade show" id="errorAlert" style="display: none">
-          <i class="fas fa-times-circle me-2"></i>
-          <span id="errorMessage">Failed to Add User</span>
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        <div class="row mb-2" style="text-align: right">
-          <div class="col-sm-12">
-            <button class="btn btn-light resetButton">
-              <i class="fa fa-refresh" aria-hidden="true"></i>
-            </button>
+          <section class="dashboard-card mb-4">
+            <div class="dashboard-card-header">
+              <div>
+                <h5 class="mb-1">Filter User</h5>
+                <p class="dashboard-card-copy mb-0">Cari akun berdasarkan nama atau status aktif.</p>
+              </div>
+              <div class="dashboard-toolbar">
+                <button id="openAddModal" class="btn btn-warning dashboard-action-btn">
+                  <i class="fa fa-user-plus"></i> Add User
+                </button>
+                <button class="btn btn-light resetButton dashboard-icon-btn" title="Reset filter">
+                  <i class="fa fa-refresh" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="row g-3 align-items-end">
+              <div class="col-md-4">
+                <label for="search" class="form-label">Name</label>
+                <input type="text" id="search" class="form-control" placeholder="Cari username atau full name" />
+              </div>
+              <div class="col-md-3">
+                <label for="status" class="form-label">Status</label>
+                <select id="status" class="form-select">
+                  <option value="">All Status</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <div class="alert alert-success alert-dismissible fade show" id="successAlert" style="display: none">
+            <i class="fas fa-check-circle me-2"></i>
+            <span id="successMessage">Add New User Success</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
-        </div>
-        <table class="table table-bordered table-hover text-sm">
-          <thead class="table-light">
-            <tr>
-              <th>No</th>
-              <th>Username</th>
-              <th>Full Name</th>
-              <th>Status</th>
-              <th>Role</th>
-              <th>Create By</th>
-              <th>Create Date</th>
-              <th>Last Update By</th>
-              <th>Last Update Date</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Data dari JS akan di-render di sini -->
-          </tbody>
-        </table>
-        <div class="d-flex justify-content-center align-items-center gap-3 mt-3" id="pagination">
-          <button id="prev-page" class="btn btn-outline-primary btn-sm">
-            <i class="fa fa-angle-left"></i>
-          </button>
-          <span id="pagination-info" class="mx-2">Page 1 of 1</span>
-          <button id="next-page" class="btn btn-outline-primary btn-sm">
-            <i class="fa fa-angle-right"></i>
-          </button>
+
+          <div class="alert alert-danger alert-dismissible fade show" id="errorAlert" style="display: none">
+            <i class="fas fa-times-circle me-2"></i>
+            <span id="errorMessage">Failed to Add User</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+
+          <section class="dashboard-card table-card">
+            <div class="dashboard-card-header">
+              <div>
+                <h5 class="mb-1">Daftar User</h5>
+                <p class="dashboard-card-copy mb-0">Data akun ditampilkan dengan status, role, dan histori perubahan.</p>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-bordered table-hover text-sm mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>No</th>
+                    <th>Username</th>
+                    <th>Full Name</th>
+                    <th>Status</th>
+                    <th>Role</th>
+                    <th>Create By</th>
+                    <th>Create Date</th>
+                    <th>Last Update By</th>
+                    <th>Last Update Date</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Data dari JS akan di-render di sini -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="d-flex justify-content-center align-items-center gap-3 mt-4" id="pagination">
+              <button id="prev-page" class="btn btn-outline-primary btn-sm">
+                <i class="fa fa-angle-left"></i>
+              </button>
+              <span id="pagination-info" class="mx-2">Page 1 of 1</span>
+              <button id="next-page" class="btn btn-outline-primary btn-sm">
+                <i class="fa fa-angle-right"></i>
+              </button>
+            </div>
+          </section>
         </div>
       </div>
-
     </div>
   </div>
 

@@ -9,7 +9,6 @@ const siteSchema = new mongoose.Schema({
   status: Boolean,
   assetSite: String,
   lastCrawl: Date,
-  lastGetAsset: Date,
   lastUpdateBy: String,
   lastUpdateDate: Date,
   // Legacy fields retained for backward compatibility with existing documents.

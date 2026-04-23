@@ -106,6 +106,7 @@ function parseBoolean(value, defaultValue = false) {
 
   if (typeof value === 'string') {
     const normalized = value.trim().toLowerCase();
+    if (!normalized || normalized === '-' || normalized === 'n/a') return defaultValue;
     if (['true', '1', 'y', 'yes', 'active'].includes(normalized)) return true;
     if (['false', '0', 'n', 'no', 'inactive'].includes(normalized)) return false;
   }
@@ -198,7 +199,6 @@ function normalizeSiteDocument(site) {
     status: parseBoolean(plainSite.status, true),
     assetSite: plainSite.assetSite || '',
     lastCrawl: plainSite.lastCrawl || plainSite.lastScan || null,
-    lastGetAsset: plainSite.lastGetAsset || null,
     lastUpdateBy: plainSite.lastUpdateBy || '',
     lastUpdateDate: plainSite.lastUpdateDate || plainSite.lastUpdate || null
   };
@@ -210,12 +210,15 @@ function buildSitePayload(body = {}, fallbackUser = 'system') {
   const username = String(body.username ?? '').trim();
   const password = String(body.password ?? '').trim();
   const assetSite = String(body.assetSite ?? '').trim();
-  const flagJudol = parseBoolean(body.flagJudol, false);
+  const rawLastUpdateBy = String(body.lastUpdateBy ?? '').trim();
+  const flagJudol = parseBoolean(body.flagJudol, true);
   const status = parseBoolean(body.status, true);
   const lastCrawl = parseSpreadsheetDate(body.lastCrawl ?? body.lastScan);
-  const lastGetAsset = parseSpreadsheetDate(body.lastGetAsset);
   const lastUpdateDate = parseSpreadsheetDate(body.lastUpdateDate ?? body.lastUpdate) || new Date();
-  const lastUpdateBy = String(body.lastUpdateBy || fallbackUser).trim() || fallbackUser;
+  const lastUpdateBy =
+    !rawLastUpdateBy || rawLastUpdateBy === '-' || rawLastUpdateBy.toLowerCase() === 'n/a'
+      ? fallbackUser
+      : rawLastUpdateBy;
 
   return {
     judolSite,
@@ -226,7 +229,6 @@ function buildSitePayload(body = {}, fallbackUser = 'system') {
     status,
     assetSite,
     lastCrawl,
-    lastGetAsset,
     lastUpdateBy,
     lastUpdateDate,
     url: judolSite,
@@ -235,7 +237,8 @@ function buildSitePayload(body = {}, fallbackUser = 'system') {
   };
 }
 
-function buildTaskPayload(body = {}, fallbackUser = 'system') {
+function buildTaskPayload(body = {}, fallbackUser = 'system', options = {}) {
+  const keepEmptyUpdateMeta = Boolean(options.keepEmptyUpdateMeta);
   const rawTaskDate = parseSpreadsheetDate(body.taskDate ?? body.tasklistDate);
   const taskDate = rawTaskDate
     ? new Date(Date.UTC(rawTaskDate.getFullYear(), rawTaskDate.getMonth(), rawTaskDate.getDate()))
@@ -247,8 +250,16 @@ function buildTaskPayload(body = {}, fallbackUser = 'system') {
   const password = String(body.password ?? '').trim();
   const flagJudol = parseBoolean(body.flagJudol, false);
   const statusSite = parseBoolean(body.statusSite ?? body.status, true);
-  const lastUpdatedBy = String(body.lastUpdatedBy ?? body.lastUpdateBy ?? fallbackUser).trim() || fallbackUser;
-  const lastUpdateDate = parseSpreadsheetDate(body.lastUpdateDate) || new Date();
+  const rawLastUpdatedBy = String(body.lastUpdatedBy ?? body.lastUpdateBy ?? '').trim();
+  const parsedLastUpdateDate = parseSpreadsheetDate(body.lastUpdateDate);
+  const lastUpdatedBy =
+    keepEmptyUpdateMeta && (!rawLastUpdatedBy || rawLastUpdatedBy === '-' || rawLastUpdatedBy.toLowerCase() === 'n/a')
+      ? ''
+      : rawLastUpdatedBy || fallbackUser;
+  const lastUpdateDate =
+    keepEmptyUpdateMeta && !parsedLastUpdateDate
+      ? null
+      : parsedLastUpdateDate || new Date();
 
   return {
     taskDate,
@@ -268,6 +279,22 @@ function normalizeJudolSiteValue(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function normalizePicValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizeTaskDateValue(value) {
+  const parsed = parseSpreadsheetDate(value);
+  if (!parsed) return null;
+
+  return new Date(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()));
+}
+
+function getTaskDateKey(value) {
+  const parsed = normalizeTaskDateValue(value);
+  return parsed ? parsed.toISOString().slice(0, 10) : '';
+}
+
 function getStartOfTodayInJakarta() {
   const jakartaDate = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Jakarta',
@@ -280,44 +307,71 @@ function getStartOfTodayInJakarta() {
 }
 
 async function revokeExpiredTasks() {
-  const startOfToday = getStartOfTodayInJakarta();
-  const result = await TaskModel.deleteMany({
-    taskDate: {
-      $ne: null,
-      $lt: startOfToday
-    }
-  });
-
-  if (result.deletedCount > 0) {
-    console.log(`Revoke task expired: ${result.deletedCount} task dihapus.`);
-  }
+  return;
 }
 
 async function getAvailableSitesForDistribution() {
   await revokeExpiredTasks();
 
-  const [sites, tasks] = await Promise.all([
-    SiteModel.find().lean(),
-    TaskModel.find({}, { url: 1 }).lean()
-  ]);
-
-  const usedTaskUrls = new Set(
-    tasks
-      .map((task) => normalizeJudolSiteValue(task.url))
-      .filter(Boolean)
-  );
+  const sites = await SiteModel.find().lean();
 
   return sites
     .map(normalizeSiteDocument)
     .filter((site) => normalizeJudolSiteValue(site.judolSite))
-    .filter((site) => !usedTaskUrls.has(normalizeJudolSiteValue(site.judolSite)))
     .sort((a, b) => {
-      const aTime = new Date(a.lastUpdateDate || a.lastCrawl || 0).getTime();
-      const bTime = new Date(b.lastUpdateDate || b.lastCrawl || 0).getTime();
+      const aHasLastCrawl = Boolean(a.lastCrawl);
+      const bHasLastCrawl = Boolean(b.lastCrawl);
 
-      if (bTime !== aTime) return bTime - aTime;
+      if (aHasLastCrawl !== bHasLastCrawl) {
+        return aHasLastCrawl ? 1 : -1;
+      }
+
+      const aTime = a.lastCrawl ? new Date(a.lastCrawl).getTime() : 0;
+      const bTime = b.lastCrawl ? new Date(b.lastCrawl).getTime() : 0;
+
+      if (aTime !== bTime) return aTime - bTime;
       return String(a.judolSite || '').localeCompare(String(b.judolSite || ''), 'id');
     });
+}
+
+async function syncSiteLastCrawlFromTask(task, updatedBy, updatedAt) {
+  const judolSite = String(task?.url || '').trim();
+  if (!judolSite || !updatedAt) {
+    return;
+  }
+
+  const escapedJudolSite = judolSite.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const filter = {
+    $or: [
+      { judolSite },
+      { url: judolSite },
+      { judolSite: { $regex: `^${escapedJudolSite}$`, $options: 'i' } },
+      { url: { $regex: `^${escapedJudolSite}$`, $options: 'i' } }
+    ]
+  };
+
+  const existingSite = await SiteModel.findOne(filter, { _id: 1 }).lean();
+
+  await SiteModel.updateOne(
+    existingSite ? { _id: existingSite._id } : { judolSite },
+    {
+      $set: {
+        judolSite,
+        url: judolSite,
+        title: String(task?.title || '').trim(),
+        username: String(task?.username || '').trim(),
+        password: String(task?.password || '').trim(),
+        flagJudol: parseBoolean(task?.flagJudol, false),
+        status: parseBoolean(task?.statusSite, true),
+        lastCrawl: updatedAt,
+        lastScan: updatedAt,
+        lastUpdateBy: updatedBy,
+        lastUpdateDate: updatedAt,
+        lastUpdate: updatedAt
+      }
+    },
+    { upsert: true }
+  );
 }
 
 function isAdminUser(user) {
@@ -435,6 +489,31 @@ app.post('/api/auth/login', async (req, res) => {
     res.json({ message: 'Login berhasil.', user: safeUser });
   } catch (error) {
     res.status(500).json({ message: 'Gagal login.', error: error.message });
+  }
+});
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    const password = String(req.body?.password || '').trim();
+
+    if (!name || !password) {
+      return res.status(400).json({ message: 'Username dan password baru wajib diisi.' });
+    }
+
+    const user = await UserModel.findOne({ name, isActive: true });
+    if (!user) {
+      return res.status(404).json({ message: 'Username tidak ditemukan atau tidak aktif.' });
+    }
+
+    user.password = password;
+    user.lastUpdatedBy = `self-reset:${name}`;
+    user.lastUpdatedAt = new Date();
+    await user.save();
+
+    res.json({ message: 'Password berhasil diganti. Silakan login dengan password baru.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal mengganti password.', error: error.message });
   }
 });
 
@@ -559,7 +638,7 @@ app.post('/api/users', requireAdmin, async (req, res) => {
   try {
     const { name, password, fullName, role, isActive } = req.body;
     const normalizedRole = String(role || '').trim();
-    const normalizedPassword = normalizedRole === 'admin' ? String(password || '').trim() : 'bca123';
+    const normalizedPassword = String(password || '').trim();
 
     if (!name || !normalizedPassword || !fullName || !normalizedRole) {
       return res.status(400).json({ message: 'Username, password, full name, dan role wajib diisi.' });
@@ -621,9 +700,7 @@ app.put('/api/users/:id', requireAdmin, async (req, res) => {
       lastUpdatedAt: new Date()
     };
 
-    if (normalizedRole !== 'admin') {
-      updatePayload.password = 'bca123';
-    } else if (password && String(password).trim()) {
+    if (password && String(password).trim()) {
       updatePayload.password = password.trim();
     }
 
@@ -1043,7 +1120,7 @@ app.post('/api/tasks/upload', requireAdmin, async (req, res) => {
     const invalidRows = [];
 
     items.forEach((item, index) => {
-      const payload = buildTaskPayload(item, fallbackUser);
+      const payload = buildTaskPayload(item, fallbackUser, { keepEmptyUpdateMeta: true });
 
       if (!payload.url) {
         invalidRows.push(`Baris ${index + 2}: Judol Site wajib diisi.`);
@@ -1149,7 +1226,7 @@ app.post('/api/tasks/distribute', requireAdmin, async (req, res) => {
     );
 
     const normalizedItems = items.map((item, index) => {
-      const taskDate = item?.taskDate ? new Date(item.taskDate) : null;
+      const taskDate = normalizeTaskDateValue(item?.taskDate);
       const pic = String(item?.pic || '').trim();
       const quantity = Number(item?.quantity);
 
@@ -1176,21 +1253,63 @@ app.post('/api/tasks/distribute', requireAdmin, async (req, res) => {
       };
     });
 
-    const availableSites = await getAvailableSitesForDistribution();
-    const totalRequested = normalizedItems.reduce((sum, item) => sum + item.quantity, 0);
+    const [availableSites, existingTasks] = await Promise.all([
+      getAvailableSitesForDistribution(),
+      TaskModel.find({}, { url: 1, pic: 1, taskDate: 1 }).lean()
+    ]);
 
-    if (totalRequested > availableSites.length) {
-      return res.status(400).json({
-        message: `Jumlah task melebihi data tersedia. Tersedia ${availableSites.length}, diminta ${totalRequested}.`
-      });
-    }
+    const assignedByDate = new Set();
+    const assignedByPic = new Set();
 
-    let cursor = 0;
+    existingTasks.forEach((task) => {
+      const normalizedUrl = normalizeJudolSiteValue(task.url);
+      const normalizedPic = normalizePicValue(task.pic);
+      const taskDateKey = getTaskDateKey(task.taskDate);
+
+      if (normalizedUrl && taskDateKey) {
+        assignedByDate.add(`${taskDateKey}::${normalizedUrl}`);
+      }
+
+      if (normalizedUrl && normalizedPic) {
+        assignedByPic.add(`${normalizedPic}::${normalizedUrl}`);
+      }
+    });
+
     const docsToInsert = [];
 
     normalizedItems.forEach((item) => {
-      const selectedSites = availableSites.slice(cursor, cursor + item.quantity);
-      cursor += item.quantity;
+      const taskDateKey = getTaskDateKey(item.taskDate);
+      const normalizedPic = normalizePicValue(item.pic);
+      const selectedSites = [];
+
+      for (const site of availableSites) {
+        if (selectedSites.length >= item.quantity) {
+          break;
+        }
+
+        const normalizedUrl = normalizeJudolSiteValue(site.judolSite);
+        if (!normalizedUrl) {
+          continue;
+        }
+
+        if (assignedByDate.has(`${taskDateKey}::${normalizedUrl}`)) {
+          continue;
+        }
+
+        if (assignedByPic.has(`${normalizedPic}::${normalizedUrl}`)) {
+          continue;
+        }
+
+        selectedSites.push(site);
+        assignedByDate.add(`${taskDateKey}::${normalizedUrl}`);
+        assignedByPic.add(`${normalizedPic}::${normalizedUrl}`);
+      }
+
+      if (selectedSites.length < item.quantity) {
+        throw new Error(
+          `Data site untuk PIC ${item.pic} pada tanggal ${taskDateKey} tidak mencukupi. Tersedia ${selectedSites.length}, diminta ${item.quantity}.`
+        );
+      }
 
       selectedSites.forEach((site) => {
         docsToInsert.push({
@@ -1213,7 +1332,7 @@ app.post('/api/tasks/distribute', requireAdmin, async (req, res) => {
     res.status(201).json({
       message: `${created.length} task berhasil didistribusikan.`,
       createdCount: created.length,
-      remainingCount: availableSites.length - created.length
+      remainingCount: Math.max(0, availableSites.length - created.length)
     });
   } catch (err) {
     const statusCode = err instanceof Error ? 400 : 500;
@@ -1287,6 +1406,7 @@ app.post('/api/tasks/:id/temuan', async (req, res) => {
         }
       }
     );
+    await syncSiteLastCrawlFromTask(task, updatedBy, now);
 
     res.status(201).json({
       message: `${created.length} data temuan berhasil disimpan.`,
@@ -1347,6 +1467,12 @@ app.put('/api/tasks/:id', async (req, res) => {
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: 'Data task tidak ditemukan atau tidak bisa diakses' });
+
+    await syncSiteLastCrawlFromTask(
+      updated,
+      updatePayload.lastUpdatedBy,
+      updatePayload.lastUpdateDate
+    );
 
     res.json(updated);
   } catch (err) {
