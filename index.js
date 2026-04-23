@@ -393,6 +393,15 @@ function buildTaskAccessFilter(user) {
   return allowedPics.length ? { pic: { $in: allowedPics } } : { _id: null };
 }
 
+function buildTemuanAccessFilter(user) {
+  if (isAdminUser(user)) {
+    return {};
+  }
+
+  const allowedUpdaters = getAllowedTaskPics(user);
+  return allowedUpdaters.length ? { updatedBy: { $in: allowedUpdaters } } : { _id: null };
+}
+
 async function migrateLegacySiteData() {
   const legacySites = await SiteModel.find({
     $or: [
@@ -740,7 +749,7 @@ app.delete('/api/users/:id', requireAdmin, async (req, res) => {
 
 app.get('/api/temuan', async (req, res) => {
   try {
-    const data = await TemuanModel.find().sort({ updatedDate: -1, taskDate: -1, judolSite: 1 });
+    const data = await TemuanModel.find(buildTemuanAccessFilter(req.user)).sort({ updatedDate: -1, taskDate: -1, judolSite: 1 });
     res.json(data);
   } catch (error) {
     res.status(500).json({ message: 'Gagal mengambil data temuan.', error: error.message });
