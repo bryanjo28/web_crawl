@@ -4,9 +4,13 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   const API = '/api/temuan';
   const searchInput = document.getElementById('search');
+  const typeFilter = document.getElementById('typeFilter');
+  const bankFilter = document.getElementById('bankFilter');
   const resetButton = document.querySelector('.resetButton');
   const addButton = document.getElementById('openAddTemuanModal');
+  const uploadButton = document.getElementById('uploadTemuanData');
   const exportButton = document.getElementById('exportTemuan');
+  const uploadLoading = document.getElementById('uploadTemuanLoading');
   const tbody = document.querySelector('table tbody');
   const paginationInfo = document.getElementById('pagination-info');
   const prevPageButton = document.getElementById('prev-page');
@@ -19,10 +23,13 @@ document.addEventListener('DOMContentLoaded', async function () {
   const isAdmin = currentUser.role === 'admin';
   const deleteModal = new bootstrap.Modal(document.getElementById('deleteTemuanModal'));
   const temuanModal = new bootstrap.Modal(document.getElementById('temuanModal'));
+  const uploadModal = new bootstrap.Modal(document.getElementById('temuanUploadModal'));
+  const uploadPreviewModal = new bootstrap.Modal(document.getElementById('temuanUploadPreviewModal'));
 
   let allTemuan = [];
   let deleteTarget = null;
   let currentPage = 1;
+  let parsedUploadRows = [];
 
   function showSuccess(message) {
     successMessage.textContent = message;
@@ -51,15 +58,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     return date.toLocaleString('id-ID');
   }
 
-  function toDateTimeLocal(value) {
-    if (!value) return '';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '';
-    const offset = date.getTimezoneOffset();
-    const localDate = new Date(date.getTime() - (offset * 60000));
-    return localDate.toISOString().slice(0, 16);
-  }
-
   function escapeHtml(value) {
     return String(value ?? '')
       .replaceAll('&', '&amp;')
@@ -79,21 +77,51 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('temuanTitleSite').value = '';
   }
 
+  function getSpreadsheetValue(row, ...keys) {
+    for (const key of keys) {
+      const value = row?.[key];
+      if (value !== undefined && value !== null && value !== '') {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
+  function mapUploadRow(row) {
+    return {
+      judolSite: String(getSpreadsheetValue(row, 'Judol Site', 'JudolSite', 'URL')).trim(),
+      taskDate: getSpreadsheetValue(row, 'Task Date', 'TaskDate'),
+      type: String(getSpreadsheetValue(row, 'Type', 'Jenis')).trim(),
+      bankName: String(getSpreadsheetValue(row, 'Bank Name', 'BankName', 'Nama Bank')).trim(),
+      identifierNo: String(getSpreadsheetValue(row, 'Identifier No', 'IdentifierNo', 'Nomor')).trim(),
+      fileName: String(getSpreadsheetValue(row, 'File Name', 'FileName')).trim(),
+      titleSite: String(getSpreadsheetValue(row, 'Title Site', 'TitleSite')).trim()
+    };
+  }
+
   function getFilteredTemuan() {
     const keyword = searchInput.value.trim().toLowerCase();
+    const selectedType = typeFilter.value.trim().toLowerCase();
+    const selectedBank = bankFilter.value.trim().toLowerCase();
 
     return allTemuan.filter((item) => {
-      if (!keyword) return true;
+      const matchesKeyword =
+        !keyword ||
+        [
+          item.judolSite,
+          item.type,
+          item.bankName,
+          item.identifierNo,
+          item.fileName,
+          item.titleSite,
+          item.updatedBy
+        ].some((value) => String(value || '').toLowerCase().includes(keyword));
 
-      return [
-        item.judolSite,
-        item.type,
-        item.bankName,
-        item.identifierNo,
-        item.fileName,
-        item.titleSite,
-        item.updatedBy
-      ].some((value) => String(value || '').toLowerCase().includes(keyword));
+      const matchesType = !selectedType || String(item.type || '').toLowerCase() === selectedType;
+      const matchesBank = !selectedBank || String(item.bankName || '').toLowerCase().includes(selectedBank);
+
+      return matchesKeyword && matchesType && matchesBank;
     });
   }
 
@@ -151,6 +179,31 @@ document.addEventListener('DOMContentLoaded', async function () {
     paginationInfo.textContent = `Page ${currentPage} of ${totalPages}`;
     prevPageButton.disabled = currentPage <= 1;
     nextPageButton.disabled = currentPage >= totalPages;
+  }
+
+  function renderUploadPreview() {
+    const previewBody = document.getElementById('temuanUploadPreviewBody');
+    previewBody.innerHTML = '';
+
+    if (!parsedUploadRows.length) {
+      previewBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Belum ada data upload temuan.</td></tr>';
+      return;
+    }
+
+    parsedUploadRows.forEach((row, index) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${escapeHtml(row.judolSite || '-')}</td>
+        <td>${escapeHtml(row.taskDate || '-')}</td>
+        <td>${escapeHtml(row.type || '-')}</td>
+        <td>${escapeHtml(row.bankName || '-')}</td>
+        <td>${escapeHtml(row.identifierNo || '-')}</td>
+        <td>${escapeHtml(row.fileName || '-')}</td>
+        <td>${escapeHtml(row.titleSite || '-')}</td>
+      `;
+      previewBody.appendChild(tr);
+    });
   }
 
   function openDeleteModal(id) {
@@ -223,24 +276,103 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
   }
 
-  function exportTemuan() {
-    const rows = getFilteredTemuan().map((item, index) => ({
-      No: index + 1,
-      JudolSite: item.judolSite || '',
-      TaskDate: item.taskDate ? new Date(item.taskDate) : '',
-      Type: item.type || '',
-      BankName: item.bankName || '',
-      IdentifierNo: item.identifierNo || '',
-      FileName: item.fileName || '',
-      TitleSite: item.titleSite || '',
-      UpdatedBy: item.updatedBy || '',
-      UpdatedDate: item.updatedDate ? new Date(item.updatedDate) : ''
-    }));
+  async function previewUploadFile() {
+    const fileInput = document.getElementById('temuanUploadFile');
+    const file = fileInput.files[0];
 
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Temuan');
-    XLSX.writeFile(workbook, `temuan_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    if (!file) {
+      showError('Pilih file Excel terlebih dahulu.');
+      return;
+    }
+
+    const extension = file.name.split('.').pop().toLowerCase();
+    if (!['xlsx', 'xls', 'csv'].includes(extension)) {
+      showError('Format file harus .xlsx, .xls, atau .csv.');
+      return;
+    }
+
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const jsonRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+    parsedUploadRows = jsonRows.map(mapUploadRow).filter((row) =>
+      Object.values(row).some((value) => String(value ?? '').trim() !== '')
+    );
+
+    if (!parsedUploadRows.length) {
+      showError('Data Excel kosong atau header tidak sesuai.');
+      return;
+    }
+
+    renderUploadPreview();
+    uploadModal.hide();
+    uploadPreviewModal.show();
+  }
+
+  async function submitUpload() {
+    if (!parsedUploadRows.length) {
+      showError('Tidak ada data upload temuan untuk dikirim.');
+      return;
+    }
+
+    uploadLoading.style.display = 'inline-block';
+
+    try {
+      const response = await window.AppAuth.authFetch(`${API}/upload`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          items: parsedUploadRows
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || 'Gagal upload data temuan.');
+      }
+
+      uploadPreviewModal.hide();
+      document.getElementById('temuanUploadFile').value = '';
+      parsedUploadRows = [];
+      await loadTemuan();
+      showSuccess(result.message || 'Upload temuan berhasil.');
+    } catch (error) {
+      showError(error.message);
+    } finally {
+      uploadLoading.style.display = 'none';
+    }
+  }
+
+  async function exportTemuan() {
+    try {
+      const params = new URLSearchParams();
+      if (searchInput.value.trim()) params.set('search', searchInput.value.trim());
+      if (typeFilter.value.trim()) params.set('type', typeFilter.value.trim());
+      if (bankFilter.value.trim()) params.set('bankName', bankFilter.value.trim());
+
+      const response = await window.AppAuth.authFetch(`${API}/download?${params.toString()}`);
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.message || 'Gagal download data temuan.');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      const fileName = `temuan_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      showError(error.message);
+    }
   }
 
   async function loadTemuan() {
@@ -260,11 +392,26 @@ document.addEventListener('DOMContentLoaded', async function () {
     currentPage = 1;
     renderTemuan();
   });
+
+  typeFilter.addEventListener('input', () => {
+    currentPage = 1;
+    renderTemuan();
+  });
+
+  bankFilter.addEventListener('input', () => {
+    currentPage = 1;
+    renderTemuan();
+  });
+
   document.getElementById('confirmDeleteTemuanBtn').addEventListener('click', deleteTemuan);
   document.getElementById('saveTemuanBtn').addEventListener('click', saveTemuan);
+  document.getElementById('previewTemuanUploadBtn').addEventListener('click', previewUploadFile);
+  document.getElementById('confirmTemuanUploadBtn').addEventListener('click', submitUpload);
 
   resetButton.addEventListener('click', () => {
     searchInput.value = '';
+    typeFilter.value = '';
+    bankFilter.value = '';
     currentPage = 1;
     renderTemuan();
   });
@@ -279,15 +426,21 @@ document.addEventListener('DOMContentLoaded', async function () {
     renderTemuan();
   });
 
+  addButton.addEventListener('click', () => {
+    resetForm();
+    temuanModal.show();
+  });
+
+  uploadButton.addEventListener('click', () => {
+    document.getElementById('temuanUploadFile').value = '';
+    parsedUploadRows = [];
+    uploadModal.show();
+  });
+
   if (isAdmin) {
     actionHeader.style.display = '';
-    addButton.addEventListener('click', () => {
-      resetForm();
-      temuanModal.show();
-    });
     exportButton.addEventListener('click', exportTemuan);
   } else {
-    addButton.style.display = 'none';
     exportButton.style.display = 'none';
   }
 

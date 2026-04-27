@@ -39,6 +39,9 @@
                 <button id="openAddTemuanModal" class="btn btn-success dashboard-action-btn">
                   <i class="fa fa-plus"></i> Add
                 </button>
+                <button id="uploadTemuanData" type="button" class="btn btn-primary dashboard-action-btn">
+                  <i class="fa fa-upload" aria-hidden="true"></i> Upload Bulk
+                </button>
                 <button id="exportTemuan" type="button" class="btn btn-secondary dashboard-action-btn">
                   <i class="fa fa-download" aria-hidden="true"></i> Download
                 </button>
@@ -49,9 +52,23 @@
             </div>
 
             <div class="row g-3 align-items-end">
-              <div class="col-md-5">
+              <div class="col-md-4">
                 <label for="search" class="form-label">Search</label>
                 <input type="text" id="search" class="form-control" placeholder="judol site / bank / nomor" />
+              </div>
+              <div class="col-md-4">
+                <label for="typeFilter" class="form-label">Jenis</label>
+                <select id="typeFilter" class="form-select">
+                  <option value="">Semua jenis</option>
+                  <option value="rekening">rekening</option>
+                  <option value="qris">qris</option>
+                  <option value="va">va</option>
+                  <option value="sakuku">sakuku</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label for="bankFilter" class="form-label">Nama Bank</label>
+                <input type="text" id="bankFilter" class="form-control" placeholder="filter nama bank" />
               </div>
             </div>
           </section>
@@ -130,7 +147,7 @@
     </div>
 	  </div>
 
-	  <div class="modal fade" id="temuanModal" tabindex="-1" aria-hidden="true">
+		  <div class="modal fade" id="temuanModal" tabindex="-1" aria-hidden="true">
 	    <div class="modal-dialog modal-lg">
 	      <div class="modal-content">
 	        <div class="modal-header">
@@ -147,10 +164,16 @@
 	              <label for="temuanTaskDate" class="form-label">Task Date</label>
 	              <input type="datetime-local" class="form-control" id="temuanTaskDate" />
 	            </div>
-	            <div class="col-md-4">
-	              <label for="temuanType" class="form-label">Type</label>
-	              <input type="text" class="form-control" id="temuanType" />
-	            </div>
+		            <div class="col-md-4">
+		              <label for="temuanType" class="form-label">Type</label>
+		              <select class="form-select" id="temuanType">
+                    <option value="">Pilih jenis</option>
+                    <option value="rekening">rekening</option>
+                    <option value="qris">qris</option>
+                    <option value="va">va</option>
+                    <option value="sakuku">sakuku</option>
+                  </select>
+		            </div>
 	            <div class="col-md-4">
 	              <label for="temuanBankName" class="form-label">Bank Name</label>
 	              <input type="text" class="form-control" id="temuanBankName" />
@@ -175,10 +198,67 @@
 	        </div>
 	      </div>
 	    </div>
-	  </div>
+		  </div>
 
-	  <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
-	  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+      <div class="modal fade" id="temuanUploadModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Upload Bulk Temuan</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <label for="temuanUploadFile" class="form-label">File Excel</label>
+              <input type="file" class="form-control" id="temuanUploadFile" accept=".xlsx,.xls,.csv" />
+              <div class="form-text">Header yang didukung: Judol Site, Task Date, Type/Jenis, Bank Name/Nama Bank, Identifier No/Nomor, File Name, Title Site.</div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-primary" id="previewTemuanUploadBtn">Preview</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="temuanUploadPreviewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Preview Upload Temuan</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="table-responsive">
+                <table class="table table-bordered table-hover text-sm mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>No</th>
+                      <th>Judol Site</th>
+                      <th>Task Date</th>
+                      <th>Jenis</th>
+                      <th>Nama Bank</th>
+                      <th>Nomor</th>
+                      <th>File Name</th>
+                      <th>Title Site</th>
+                    </tr>
+                  </thead>
+                  <tbody id="temuanUploadPreviewBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <div class="spinner-border text-primary me-auto" id="uploadTemuanLoading" style="display: none;" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-success" id="confirmTemuanUploadBtn">Submit Data</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+		  <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
+		  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 	  <script src="/static/js/auth.js"></script>
 	  <script src="/static/js/temuan.js"></script>
 </body>

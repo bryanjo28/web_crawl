@@ -18,6 +18,7 @@ const UserModel = require('./models/User')
 
 
 const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 
 const SESSION_COOKIE_NAME = 'crawl_session';
 const sessionStore = new Map();
@@ -183,6 +184,78 @@ function buildTemuanTitleSite(judolSite, type, bankName, identifierNo) {
   ]
     .filter(Boolean)
     .join('-');
+}
+
+function escapeRegex(value = '') {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildTemuanPayload(body = {}, fallbackUser = 'system', options = {}) {
+  const preserveProvidedUpdatedMeta = Boolean(options.preserveProvidedUpdatedMeta);
+  const judolSite = String(body.judolSite ?? body.url ?? '').trim();
+  const taskDate = parseSpreadsheetDate(body.taskDate ?? body.TaskDate);
+  const type = String(body.type ?? body.Type ?? body.jenis ?? '').trim();
+  const bankName = String(body.bankName ?? body.BankName ?? body['Nama Bank'] ?? '').trim();
+  const identifierNo = String(
+    body.identifierNo ?? body.IdentifierNo ?? body['Nomor'] ?? body['Identifier No'] ?? ''
+  ).trim();
+  const fileName = String(body.fileName ?? body.FileName ?? '').trim();
+  const titleSite = String(body.titleSite ?? body.TitleSite ?? '').trim();
+  const rawUpdatedBy = String(body.updatedBy ?? body.UpdatedBy ?? '').trim();
+  const parsedUpdatedDate = parseSpreadsheetDate(body.updatedDate ?? body.UpdatedDate);
+
+  return {
+    judolSite,
+    taskDate,
+    type,
+    bankName,
+    identifierNo,
+    fileName,
+    titleSite,
+    updatedBy: preserveProvidedUpdatedMeta && rawUpdatedBy ? rawUpdatedBy : fallbackUser,
+    updatedDate: preserveProvidedUpdatedMeta && parsedUpdatedDate ? parsedUpdatedDate : new Date()
+  };
+}
+
+function buildTemuanQueryFilter(user, query = {}) {
+  const filter = { ...buildTemuanAccessFilter(user) };
+  const keyword = String(query.search ?? query.q ?? '').trim();
+  const type = String(query.type ?? '').trim();
+  const bankName = String(query.bankName ?? '').trim();
+
+  if (type) {
+    filter.type = { $regex: escapeRegex(type), $options: 'i' };
+  }
+
+  if (bankName) {
+    filter.bankName = { $regex: escapeRegex(bankName), $options: 'i' };
+  }
+
+  if (keyword) {
+    const searchRegex = new RegExp(escapeRegex(keyword), 'i');
+    filter.$or = [
+      { judolSite: searchRegex },
+      { type: searchRegex },
+      { bankName: searchRegex },
+      { identifierNo: searchRegex },
+      { fileName: searchRegex },
+      { titleSite: searchRegex },
+      { updatedBy: searchRegex }
+    ];
+  }
+
+  return filter;
+}
+
+function buildTemuanBulkKey(payload = {}) {
+  const taskDateKey = payload.taskDate instanceof Date ? payload.taskDate.toISOString() : '';
+  return [
+    String(payload.judolSite || '').trim().toLowerCase(),
+    taskDateKey,
+    String(payload.type || '').trim().toLowerCase(),
+    String(payload.bankName || '').trim().toLowerCase(),
+    String(payload.identifierNo || '').trim().toLowerCase()
+  ].join('__');
 }
 
 function normalizeSiteDocument(site) {
@@ -749,41 +822,165 @@ app.delete('/api/users/:id', requireAdmin, async (req, res) => {
 
 app.get('/api/temuan', async (req, res) => {
   try {
-    const data = await TemuanModel.find(buildTemuanAccessFilter(req.user)).sort({ updatedDate: -1, taskDate: -1, judolSite: 1 });
+    const data = await TemuanModel.find(buildTemuanQueryFilter(req.user, req.query)).sort({
+      updatedDate: -1,
+      taskDate: -1,
+      judolSite: 1
+    });
     res.json(data);
   } catch (error) {
     res.status(500).json({ message: 'Gagal mengambil data temuan.', error: error.message });
   }
 });
 
-app.post('/api/temuan', requireAdmin, async (req, res) => {
+app.get('/api/temuan/download', requireAdmin, async (req, res) => {
   try {
-    const judolSite = String(req.body?.judolSite || '').trim();
-    const type = String(req.body?.type || '').trim();
-    const bankName = String(req.body?.bankName || '').trim();
-    const identifierNo = String(req.body?.identifierNo || '').trim();
-    const fileName = String(req.body?.fileName || '').trim();
-    const titleSite = String(req.body?.titleSite || '').trim();
+    const rows = await TemuanModel.find(buildTemuanQueryFilter(req.user, req.query))
+      .sort({ updatedDate: -1, taskDate: -1, judolSite: 1 })
+      .lean();
 
-    if (!judolSite) {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Temuan');
+
+    worksheet.columns = [
+      { header: 'No', key: 'no', width: 8 },
+      { header: 'Judol Site', key: 'judolSite', width: 30 },
+      { header: 'Task Date', key: 'taskDate', width: 22 },
+      { header: 'Jenis', key: 'type', width: 18 },
+      { header: 'Nama Bank', key: 'bankName', width: 22 },
+      { header: 'Nomor', key: 'identifierNo', width: 22 },
+      { header: 'File Name', key: 'fileName', width: 30 },
+      { header: 'Title Site', key: 'titleSite', width: 30 },
+      { header: 'Updated By', key: 'updatedBy', width: 22 },
+      { header: 'Updated Date', key: 'updatedDate', width: 22 }
+    ];
+
+    rows.forEach((item, index) => {
+      worksheet.addRow({
+        no: index + 1,
+        judolSite: item.judolSite || '',
+        taskDate: item.taskDate || '',
+        type: item.type || '',
+        bankName: item.bankName || '',
+        identifierNo: item.identifierNo || '',
+        fileName: item.fileName || '',
+        titleSite: item.titleSite || '',
+        updatedBy: item.updatedBy || '',
+        updatedDate: item.updatedDate || ''
+      });
+    });
+
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getColumn('taskDate').numFmt = 'dd/mm/yyyy hh:mm:ss';
+    worksheet.getColumn('updatedDate').numFmt = 'dd/mm/yyyy hh:mm:ss';
+
+    const fileDate = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="temuan_${fileDate}.xlsx"`);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal download data temuan.', error: error.message });
+  }
+});
+
+app.post('/api/temuan', async (req, res) => {
+  try {
+    const payload = buildTemuanPayload(
+      req.body,
+      req.user?.fullName || req.user?.name || 'system'
+    );
+
+    if (!payload.judolSite) {
       return res.status(400).json({ message: 'Judol Site wajib diisi.' });
     }
 
-    const doc = await TemuanModel.create({
-      judolSite,
-      taskDate: parseSpreadsheetDate(req.body?.taskDate),
-      type,
-      bankName,
-      identifierNo,
-      fileName,
-      titleSite,
-      updatedBy: req.user?.fullName || req.user?.name || 'system',
-      updatedDate: new Date()
-    });
-
+    const doc = await TemuanModel.create(payload);
     res.status(201).json(doc);
   } catch (error) {
     res.status(500).json({ message: 'Gagal menambahkan data temuan.', error: error.message });
+  }
+});
+
+app.post('/api/temuan/upload', async (req, res) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+
+    if (!items.length) {
+      return res.status(400).json({ message: 'Data upload temuan tidak boleh kosong.' });
+    }
+
+    const fallbackUser = req.user?.fullName || req.user?.name || 'system';
+    const operations = [];
+    const invalidRows = [];
+
+    items.forEach((item, index) => {
+      const payload = buildTemuanPayload(item, fallbackUser, {
+        preserveProvidedUpdatedMeta: isAdminUser(req.user)
+      });
+
+      if (!payload.judolSite) {
+        invalidRows.push(`Baris ${index + 2}: Judol Site wajib diisi.`);
+        return;
+      }
+
+      operations.push({
+        updateOne: {
+          filter: {
+            judolSite: payload.judolSite,
+            taskDate: payload.taskDate,
+            type: payload.type,
+            bankName: payload.bankName,
+            identifierNo: payload.identifierNo
+          },
+          update: {
+            $set: payload
+          },
+          upsert: true
+        }
+      });
+    });
+
+    if (!operations.length) {
+      return res.status(400).json({
+        message: 'Tidak ada data temuan valid untuk diupload.',
+        invalidRows
+      });
+    }
+
+    const existingTemuan = await TemuanModel.find(
+      {
+        $or: operations.map((operation) => operation.updateOne.filter)
+      },
+      { judolSite: 1, taskDate: 1, type: 1, bankName: 1, identifierNo: 1 }
+    ).lean();
+
+    const existingTemuanKeys = new Set(existingTemuan.map((item) => buildTemuanBulkKey(item)));
+    const result = await TemuanModel.bulkWrite(operations, { ordered: false });
+
+    let createdCount = 0;
+    let updatedCount = 0;
+    operations.forEach((operation) => {
+      const payload = operation.updateOne.update.$set;
+      if (existingTemuanKeys.has(buildTemuanBulkKey(payload))) {
+        updatedCount += 1;
+      } else {
+        createdCount += 1;
+      }
+    });
+
+    res.json({
+      message: `Upload temuan selesai. ${createdCount} baru, ${updatedCount} diperbarui${invalidRows.length ? `, ${invalidRows.length} dilewati` : ''}.`,
+      processedCount: operations.length,
+      createdCount,
+      updatedCount,
+      matchedCount: result.matchedCount || 0,
+      modifiedCount: result.modifiedCount || 0,
+      invalidRows
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal upload data temuan.', error: error.message });
   }
 });
 
