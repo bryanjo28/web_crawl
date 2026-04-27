@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   const paginationInfo = document.getElementById('pagination-info');
   const prevPageButton = document.getElementById('prev-page');
   const nextPageButton = document.getElementById('next-page');
+  const taskDateSortHeader = document.getElementById('taskDateSortHeader');
   const successAlert = document.getElementById('successAlert');
   const errorAlert = document.getElementById('errorAlert');
   const successMessage = document.getElementById('successMessage');
@@ -33,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   let currentTemuanTask = null;
   let temuanQueue = [];
   let parsedUploadRows = [];
+  let taskDateSortDirection = 'desc';
 
   injectModals();
 
@@ -536,7 +538,16 @@ document.addEventListener('DOMContentLoaded', async function () {
       const matchesTaskDate = !taskDate || toDateInputValue(task.taskDate) === taskDate;
       const matchesPic = !pic || (task.pic || '').toLowerCase().includes(pic);
       return matchesTaskDate && matchesPic;
+    }).sort((a, b) => {
+      const timeA = a?.taskDate ? new Date(a.taskDate).getTime() : 0;
+      const timeB = b?.taskDate ? new Date(b.taskDate).getTime() : 0;
+      return taskDateSortDirection === 'desc' ? timeB - timeA : timeA - timeB;
     });
+  }
+
+  function updateTaskSortHeader() {
+    if (!taskDateSortHeader) return;
+    taskDateSortHeader.innerHTML = `Tasklist Date <i class="fa ${taskDateSortDirection === 'desc' ? 'fa-sort-down' : 'fa-sort-up'} ms-1" aria-hidden="true"></i>`;
   }
 
   function getTodayDateInputValue() {
@@ -1150,6 +1161,15 @@ document.addEventListener('DOMContentLoaded', async function () {
     renderTasks();
   });
 
+  if (taskDateSortHeader) {
+    taskDateSortHeader.addEventListener('click', () => {
+      taskDateSortDirection = taskDateSortDirection === 'desc' ? 'asc' : 'desc';
+      currentPage = 1;
+      updateTaskSortHeader();
+      renderTasks();
+    });
+  }
+
   picFilter.addEventListener('input', () => {
     currentPage = 1;
     renderTasks();
@@ -1189,6 +1209,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     distributeButton.style.display = 'none';
     taskDateFilter.value = getTodayDateInputValue();
   }
+
+  updateTaskSortHeader();
 
   try {
     await loadPicOptions();

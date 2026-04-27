@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   const paginationInfo = document.getElementById('pagination-info');
   const prevPageButton = document.getElementById('prev-page');
   const nextPageButton = document.getElementById('next-page');
+  const siteLastUpdateBySortHeader = document.getElementById('siteLastUpdateBySortHeader');
   const successAlert = document.getElementById('successAlert');
   const errorAlert = document.getElementById('errorAlert');
   const successMessage = document.getElementById('successMessage');
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   let currentPage = 1;
   let deleteTarget = null;
   let parsedUploadRows = [];
+  let siteLastUpdateBySortDirection = 'asc';
 
   injectModals();
 
@@ -375,7 +377,18 @@ document.addEventListener('DOMContentLoaded', async function () {
         !status || (site.status ? 'Active' : 'Inactive') === status;
 
       return matchesJudolSite && matchesTitle && matchesFlag && matchesStatus;
+    }).sort((a, b) => {
+      const valueA = String(a?.lastUpdateBy || '').toLowerCase();
+      const valueB = String(b?.lastUpdateBy || '').toLowerCase();
+      return siteLastUpdateBySortDirection === 'asc'
+        ? valueA.localeCompare(valueB, 'id')
+        : valueB.localeCompare(valueA, 'id');
     });
+  }
+
+  function updateSiteSortHeader() {
+    if (!siteLastUpdateBySortHeader) return;
+    siteLastUpdateBySortHeader.innerHTML = `Last Update By <i class="fa ${siteLastUpdateBySortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down'} ms-1" aria-hidden="true"></i>`;
   }
 
   function ensurePageWithinRange(totalItems) {
@@ -600,6 +613,15 @@ document.addEventListener('DOMContentLoaded', async function () {
     renderSites();
   });
 
+  if (siteLastUpdateBySortHeader) {
+    siteLastUpdateBySortHeader.addEventListener('click', () => {
+      siteLastUpdateBySortDirection = siteLastUpdateBySortDirection === 'asc' ? 'desc' : 'asc';
+      currentPage = 1;
+      updateSiteSortHeader();
+      renderSites();
+    });
+  }
+
   prevPageButton.addEventListener('click', () => {
     currentPage -= 1;
     renderSites();
@@ -621,6 +643,8 @@ document.addEventListener('DOMContentLoaded', async function () {
       exportLoading.style.display = 'none';
     }
   });
+
+  updateSiteSortHeader();
 
   try {
     await loadSites();

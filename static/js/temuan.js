@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   const paginationInfo = document.getElementById('pagination-info');
   const prevPageButton = document.getElementById('prev-page');
   const nextPageButton = document.getElementById('next-page');
+  const temuanTaskDateSortHeader = document.getElementById('temuanTaskDateSortHeader');
   const successAlert = document.getElementById('successAlert');
   const successMessage = document.getElementById('successMessage');
   const errorAlert = document.getElementById('errorAlert');
@@ -30,6 +31,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   let deleteTarget = null;
   let currentPage = 1;
   let parsedUploadRows = [];
+  let temuanTaskDateSortDirection = 'desc';
 
   function showSuccess(message) {
     successMessage.textContent = message;
@@ -122,7 +124,16 @@ document.addEventListener('DOMContentLoaded', async function () {
       const matchesBank = !selectedBank || String(item.bankName || '').toLowerCase().includes(selectedBank);
 
       return matchesKeyword && matchesType && matchesBank;
+    }).sort((a, b) => {
+      const timeA = a?.taskDate ? new Date(a.taskDate).getTime() : 0;
+      const timeB = b?.taskDate ? new Date(b.taskDate).getTime() : 0;
+      return temuanTaskDateSortDirection === 'desc' ? timeB - timeA : timeA - timeB;
     });
+  }
+
+  function updateTemuanSortHeader() {
+    if (!temuanTaskDateSortHeader) return;
+    temuanTaskDateSortHeader.innerHTML = `Task Date <i class="fa ${temuanTaskDateSortDirection === 'desc' ? 'fa-sort-down' : 'fa-sort-up'} ms-1" aria-hidden="true"></i>`;
   }
 
   function ensurePageWithinRange(totalItems) {
@@ -393,6 +404,15 @@ document.addEventListener('DOMContentLoaded', async function () {
     renderTemuan();
   });
 
+  if (temuanTaskDateSortHeader) {
+    temuanTaskDateSortHeader.addEventListener('click', () => {
+      temuanTaskDateSortDirection = temuanTaskDateSortDirection === 'desc' ? 'asc' : 'desc';
+      currentPage = 1;
+      updateTemuanSortHeader();
+      renderTemuan();
+    });
+  }
+
   typeFilter.addEventListener('input', () => {
     currentPage = 1;
     renderTemuan();
@@ -443,6 +463,8 @@ document.addEventListener('DOMContentLoaded', async function () {
   } else {
     exportButton.style.display = 'none';
   }
+
+  updateTemuanSortHeader();
 
   try {
     await loadTemuan();
