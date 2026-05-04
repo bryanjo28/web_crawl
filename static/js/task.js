@@ -876,6 +876,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
       temuanModal.hide();
       resetTemuanModal();
+      await loadTasks();
       showAlert('success', result.message || 'Data temuan berhasil disimpan.');
     } catch (error) {
       showAlert('error', error.message);
