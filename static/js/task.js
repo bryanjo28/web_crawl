@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', async function () {
               <label for="taskUploadFile" class="form-label">File Excel</label>
               <input type="file" class="form-control" id="taskUploadFile" accept=".xlsx,.xls,.csv" />
               <div class="form-text">
-                Header Excel: Tasklist Date, PIC, Judol Site, Title Judol, Username, Password, Flag Judol, Status, Last Update By, Last Update Date.
+                Header Excel wajib: Tasklist Date, PIC, Judol Site, Title Judol, Username, Password, Flag Judol, Status. Kolom opsional: Last Update By, Last Update Date.
               </div>
             </div>
             <div class="modal-footer">

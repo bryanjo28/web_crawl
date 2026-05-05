@@ -128,7 +128,7 @@ document.addEventListener('DOMContentLoaded', async function () {
               <label for="siteUploadFile" class="form-label">File Excel</label>
               <input type="file" class="form-control" id="siteUploadFile" accept=".xlsx,.xls,.csv" />
               <div class="form-text">
-                Header Excel yang didukung: Judol Site, Title, Username, Password, Flag Judol, Status, Last Crawl, Last Update By, Last Update Date.
+                Header Excel yang didukung: Judol Site, Title, Username, Password, Flag Judol, Status. Kolom opsional: Last Crawl, Last Update By, Last Update Date.
               </div>
             </div>
             <div class="modal-footer">
