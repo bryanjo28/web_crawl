@@ -4,21 +4,22 @@ const crypto = require('crypto');
 const app = express();
 const port = 80;
 const mongoose = require('mongoose');
-const UrlModel = require('./models/Url'); // Sesuai dengan nama file 'Url.js'
 const SiteModel = require('./models/Site'); // Sesuai dengan nama file 'Site.js'
 const TaskModel = require('./models/Task');
 const TemuanModel = require('./models/Temuan');
 
-const RekModel = require('./models/Rekening');
-const QRISModel = require('./models/Qris');
-const KeyModel = require('./models/Keyword');
-const CrawlModel = require('./models/ExcludeWeb')
-const ConfigModel = require('./models/Config')
 const UserModel = require('./models/User')
 
-
-const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
+
+// Legacy imports retained here for older URL/config modules that are currently disabled.
+// const UrlModel = require('./models/Url');
+// const RekModel = require('./models/Rekening');
+// const QRISModel = require('./models/Qris');
+// const KeyModel = require('./models/Keyword');
+// const CrawlModel = require('./models/ExcludeWeb');
+// const ConfigModel = require('./models/Config');
+// const XLSX = require('xlsx');
 
 const SESSION_COOKIE_NAME = 'crawl_session';
 const sessionStore = new Map();
@@ -368,16 +369,17 @@ function getTaskDateKey(value) {
   return parsed ? parsed.toISOString().slice(0, 10) : '';
 }
 
-function getStartOfTodayInJakarta() {
-  const jakartaDate = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Jakarta',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(new Date());
-
-  return new Date(`${jakartaDate}T00:00:00+07:00`);
-}
+// Legacy helper kept for the old task expiry flow.
+// function getStartOfTodayInJakarta() {
+//   const jakartaDate = new Intl.DateTimeFormat('en-CA', {
+//     timeZone: 'Asia/Jakarta',
+//     year: 'numeric',
+//     month: '2-digit',
+//     day: '2-digit'
+//   }).format(new Date());
+//
+//   return new Date(`${jakartaDate}T00:00:00+07:00`);
+// }
 
 async function revokeExpiredTasks() {
   return;
@@ -1003,7 +1005,7 @@ app.delete('/api/temuan/:id', requireAdmin, async (req, res) => {
   }
 });
 
-
+// Legacy URL/config routes below are intentionally kept commented for reference only.
 // API: Get semua data URL
 // app.get('/api/urls', async (req, res) => {
 //   try {

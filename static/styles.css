@@ -508,6 +508,41 @@ body:not(.login-page) {
     color: var(--text);
 }
 
+.password-field {
+    position: relative;
+}
+
+.password-field .form-control {
+    padding-right: 48px;
+}
+
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.password-toggle:hover,
+.password-toggle:focus {
+    color: var(--primary);
+    background: var(--hover-soft);
+}
+
+.password-toggle:focus {
+    box-shadow: none;
+}
+
 .login-submit {
     width: 100%;
     border-radius: 12px;

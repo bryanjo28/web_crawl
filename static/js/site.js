@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   const paginationInfo = document.getElementById('pagination-info');
   const prevPageButton = document.getElementById('prev-page');
   const nextPageButton = document.getElementById('next-page');
-  const siteLastUpdateBySortHeader = document.getElementById('siteLastUpdateBySortHeader');
+  const siteLastUpdateDateSortHeader = document.getElementById('siteLastUpdateDateSortHeader');
   const successAlert = document.getElementById('successAlert');
   const errorAlert = document.getElementById('errorAlert');
   const successMessage = document.getElementById('successMessage');
@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   let currentPage = 1;
   let deleteTarget = null;
   let parsedUploadRows = [];
-  let siteLastUpdateBySortDirection = 'asc';
+  let siteLastUpdateDateSortDirection = 'desc';
 
   injectModals();
 
@@ -378,17 +378,15 @@ document.addEventListener('DOMContentLoaded', async function () {
 
       return matchesJudolSite && matchesTitle && matchesFlag && matchesStatus;
     }).sort((a, b) => {
-      const valueA = String(a?.lastUpdateBy || '').toLowerCase();
-      const valueB = String(b?.lastUpdateBy || '').toLowerCase();
-      return siteLastUpdateBySortDirection === 'asc'
-        ? valueA.localeCompare(valueB, 'id')
-        : valueB.localeCompare(valueA, 'id');
+      const timeA = a?.lastUpdateDate ? new Date(a.lastUpdateDate).getTime() : 0;
+      const timeB = b?.lastUpdateDate ? new Date(b.lastUpdateDate).getTime() : 0;
+      return siteLastUpdateDateSortDirection === 'desc' ? timeB - timeA : timeA - timeB;
     });
   }
 
   function updateSiteSortHeader() {
-    if (!siteLastUpdateBySortHeader) return;
-    siteLastUpdateBySortHeader.innerHTML = `Last Update By <i class="fa ${siteLastUpdateBySortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down'} ms-1" aria-hidden="true"></i>`;
+    if (!siteLastUpdateDateSortHeader) return;
+    siteLastUpdateDateSortHeader.innerHTML = `Last Update Date <i class="fa ${siteLastUpdateDateSortDirection === 'desc' ? 'fa-sort-down' : 'fa-sort-up'} ms-1" aria-hidden="true"></i>`;
   }
 
   function ensurePageWithinRange(totalItems) {
@@ -407,7 +405,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     tbody.innerHTML = '';
 
     if (!pagedSites.length) {
-      tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">Tidak ada data judol site.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Tidak ada data judol site.</td></tr>';
     } else {
       pagedSites.forEach((site, index) => {
         const tr = document.createElement('tr');
@@ -420,7 +418,6 @@ document.addEventListener('DOMContentLoaded', async function () {
           <td>${site.flagJudol ? 'Y' : 'N'}</td>
           <td>${site.status ? 'Active' : 'Inactive'}</td>
           <td>${formatDate(site.lastCrawl)}</td>
-          <td>${escapeHtml(site.lastUpdateBy || '-')}</td>
           <td>${formatDate(site.lastUpdateDate)}</td>
           <td>
             <button class="btn btn-sm btn-warning me-1 edit-site-btn" data-id="${site._id}">
@@ -613,9 +610,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     renderSites();
   });
 
-  if (siteLastUpdateBySortHeader) {
-    siteLastUpdateBySortHeader.addEventListener('click', () => {
-      siteLastUpdateBySortDirection = siteLastUpdateBySortDirection === 'asc' ? 'desc' : 'asc';
+  if (siteLastUpdateDateSortHeader) {
+    siteLastUpdateDateSortHeader.addEventListener('click', () => {
+      siteLastUpdateDateSortDirection = siteLastUpdateDateSortDirection === 'desc' ? 'asc' : 'desc';
       currentPage = 1;
       updateSiteSortHeader();
       renderSites();

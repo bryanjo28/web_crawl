@@ -61,7 +61,12 @@
             </div>
             <div class="mb-4">
               <label for="password" class="form-label">Password</label>
-              <input type="password" id="password" class="form-control" placeholder="Masukkan password" autocomplete="current-password">
+              <div class="password-field">
+                <input type="password" id="password" class="form-control" placeholder="Masukkan password" autocomplete="current-password">
+                <button type="button" class="btn password-toggle" data-target="password" aria-label="Tampilkan password" aria-pressed="false">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
             </div>
             <button type="submit" class="btn btn-primary login-submit" id="loginSubmit">
               <i class="fa fa-right-to-bracket me-2"></i>Login
@@ -75,11 +80,21 @@
             </div>
             <div class="mb-3">
               <label for="forgotPassword" class="form-label">Password Baru</label>
-              <input type="password" id="forgotPassword" class="form-control" placeholder="Masukkan password baru" autocomplete="new-password">
+              <div class="password-field">
+                <input type="password" id="forgotPassword" class="form-control" placeholder="Masukkan password baru" autocomplete="new-password">
+                <button type="button" class="btn password-toggle" data-target="forgotPassword" aria-label="Tampilkan password baru" aria-pressed="false">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
             </div>
             <div class="mb-4">
               <label for="forgotPasswordConfirm" class="form-label">Konfirmasi Password Baru</label>
-              <input type="password" id="forgotPasswordConfirm" class="form-control" placeholder="Ulangi password baru" autocomplete="new-password">
+              <div class="password-field">
+                <input type="password" id="forgotPasswordConfirm" class="form-control" placeholder="Ulangi password baru" autocomplete="new-password">
+                <button type="button" class="btn password-toggle" data-target="forgotPasswordConfirm" aria-label="Tampilkan konfirmasi password baru" aria-pressed="false">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
             </div>
             <button type="submit" class="btn btn-primary login-submit" id="forgotSubmit">
               <i class="fa fa-key me-2"></i>Ganti Password

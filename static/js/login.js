@@ -47,6 +47,34 @@ document.addEventListener('DOMContentLoaded', () => {
     successBox.textContent = '';
   }
 
+  function initializePasswordToggles() {
+    document.querySelectorAll('.password-toggle').forEach((button) => {
+      button.addEventListener('click', () => {
+        const input = document.getElementById(button.dataset.target);
+        if (!input) return;
+        setPasswordVisibility(button.dataset.target, input.type === 'password');
+      });
+    });
+  }
+
+  function setPasswordVisibility(inputId, isVisible) {
+    const input = document.getElementById(inputId);
+    const button = document.querySelector(`.password-toggle[data-target="${inputId}"]`);
+    const icon = button?.querySelector('i');
+    if (!input || !button || !icon) return;
+
+    input.type = isVisible ? 'text' : 'password';
+    button.setAttribute('aria-pressed', String(isVisible));
+    button.setAttribute('aria-label', isVisible ? 'Sembunyikan password' : 'Tampilkan password');
+    icon.className = isVisible ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+  }
+
+  function resetPasswordVisibility() {
+    ['password', 'forgotPassword', 'forgotPasswordConfirm'].forEach((inputId) => {
+      setPasswordVisibility(inputId, false);
+    });
+  }
+
   function switchMode(mode) {
     const isForgotMode = mode === 'forgot';
 
@@ -64,10 +92,12 @@ document.addEventListener('DOMContentLoaded', () => {
       button.classList.toggle('active', button.dataset.mode === mode);
     });
 
+    resetPasswordVisibility();
     clearMessages();
   }
 
   applyTheme(getPreferredTheme());
+  initializePasswordToggles();
 
   themeToggle?.addEventListener('click', () => {
     const nextTheme = getPreferredTheme() === 'dark' ? 'light' : 'dark';

@@ -68,6 +68,29 @@ document.addEventListener('DOMContentLoaded', async function () {
     passwordInput.disabled = false;
   }
 
+  function setPasswordVisibility(inputId, isVisible) {
+    const input = document.getElementById(inputId);
+    const button = document.querySelector(`.password-toggle[data-target="${inputId}"]`);
+    const icon = button?.querySelector('i');
+    if (!input || !button || !icon) return;
+
+    input.type = isVisible ? 'text' : 'password';
+    button.setAttribute('aria-pressed', String(isVisible));
+    button.setAttribute('aria-label', isVisible ? 'Sembunyikan password' : 'Tampilkan password');
+    icon.className = isVisible ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+  }
+
+  function initializePasswordToggle(inputId) {
+    const button = document.querySelector(`.password-toggle[data-target="${inputId}"]`);
+    if (!button) return;
+
+    button.addEventListener('click', () => {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      setPasswordVisibility(inputId, input.type === 'password');
+    });
+  }
+
   function ensurePageWithinRange(totalItems) {
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
     if (currentPage > totalPages) currentPage = totalPages;
@@ -138,6 +161,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('role').value = 'user';
     document.getElementById('userStatus').value = 'Active';
     syncPasswordField();
+    setPasswordVisibility('userPassword', false);
   }
 
   function openEditModal(id) {
@@ -154,6 +178,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('role').value = user.role || 'user';
     document.getElementById('userStatus').value = user.isActive ? 'Active' : 'Inactive';
     syncPasswordField();
+    setPasswordVisibility('userPassword', false);
     userModal.show();
   }
 
@@ -240,6 +265,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     userModal.show();
   });
 
+  initializePasswordToggle('userPassword');
   document.getElementById('saveUserBtn').addEventListener('click', saveUser);
   document.getElementById('confirmDeleteUserBtn').addEventListener('click', deleteUser);
   document.getElementById('role').addEventListener('change', syncPasswordField);

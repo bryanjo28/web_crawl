@@ -138,7 +138,12 @@
           </div>
           <div class="mb-3" >
             <label for="userPassword" class="form-label">Password</label>
-            <input type="password" id="userPassword" class="form-control" placeholder="bca123"/>
+            <div class="password-field">
+              <input type="password" id="userPassword" class="form-control" placeholder="bca123"/>
+              <button type="button" class="btn password-toggle" data-target="userPassword" aria-label="Tampilkan password" aria-pressed="false">
+                <i class="fa-regular fa-eye"></i>
+              </button>
+            </div>
           </div>
           <div class="mb-3">
             <label for="fullName" class="form-label">Full Name</label>
