@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const SiteModel = require('./models/Site'); // Sesuai dengan nama file 'Site.js'
 const TaskModel = require('./models/Task');
 const TemuanModel = require('./models/Temuan');
+const { prepareSitesForDistribution } = require('./lib/siteAvailability');
 
 const UserModel = require('./models/User')
 
@@ -390,23 +391,7 @@ async function getAvailableSitesForDistribution() {
 
   const sites = await SiteModel.find().lean();
 
-  return sites
-    .map(normalizeSiteDocument)
-    .filter((site) => normalizeJudolSiteValue(site.judolSite))
-    .sort((a, b) => {
-      const aHasLastCrawl = Boolean(a.lastCrawl);
-      const bHasLastCrawl = Boolean(b.lastCrawl);
-
-      if (aHasLastCrawl !== bHasLastCrawl) {
-        return aHasLastCrawl ? 1 : -1;
-      }
-
-      const aTime = a.lastCrawl ? new Date(a.lastCrawl).getTime() : 0;
-      const bTime = b.lastCrawl ? new Date(b.lastCrawl).getTime() : 0;
-
-      if (aTime !== bTime) return aTime - bTime;
-      return String(a.judolSite || '').localeCompare(String(b.judolSite || ''), 'id');
-    });
+  return prepareSitesForDistribution(sites);
 }
 
 async function syncSiteLastCrawlFromTask(task, updatedBy, updatedAt) {
