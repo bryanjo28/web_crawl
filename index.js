@@ -354,10 +354,6 @@ function normalizeJudolSiteValue(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-function normalizePicValue(value) {
-  return String(value || '').trim().toLowerCase();
-}
-
 function normalizeTaskDateValue(value) {
   const parsed = parseSpreadsheetDate(value);
   if (!parsed) return null;
@@ -1448,31 +1444,27 @@ app.post('/api/tasks/distribute', requireAdmin, async (req, res) => {
 
     const [availableSites, existingTasks] = await Promise.all([
       getAvailableSitesForDistribution(),
-      TaskModel.find({}, { url: 1, pic: 1, taskDate: 1 }).lean()
+      TaskModel.find({}, { url: 1, taskDate: 1 }).lean()
     ]);
 
+    // One calendar day between assignments: block the same URL on the same
+    // task date, but allow it again on another date regardless of PIC/completion.
     const assignedByDate = new Set();
-    const assignedByPic = new Set();
 
     existingTasks.forEach((task) => {
       const normalizedUrl = normalizeJudolSiteValue(task.url);
-      const normalizedPic = normalizePicValue(task.pic);
       const taskDateKey = getTaskDateKey(task.taskDate);
 
       if (normalizedUrl && taskDateKey) {
         assignedByDate.add(`${taskDateKey}::${normalizedUrl}`);
       }
 
-      if (normalizedUrl && normalizedPic) {
-        assignedByPic.add(`${normalizedPic}::${normalizedUrl}`);
-      }
     });
 
     const docsToInsert = [];
 
     normalizedItems.forEach((item) => {
       const taskDateKey = getTaskDateKey(item.taskDate);
-      const normalizedPic = normalizePicValue(item.pic);
       const selectedSites = [];
 
       for (const site of availableSites) {
@@ -1489,13 +1481,8 @@ app.post('/api/tasks/distribute', requireAdmin, async (req, res) => {
           continue;
         }
 
-        if (assignedByPic.has(`${normalizedPic}::${normalizedUrl}`)) {
-          continue;
-        }
-
         selectedSites.push(site);
         assignedByDate.add(`${taskDateKey}::${normalizedUrl}`);
-        assignedByPic.add(`${normalizedPic}::${normalizedUrl}`);
       }
 
       if (selectedSites.length < item.quantity) {
