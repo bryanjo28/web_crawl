@@ -531,21 +531,18 @@ document.addEventListener('DOMContentLoaded', async function () {
   function normalizeFilePart(value) {
     return String(value ?? '')
       .trim()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-zA-Z0-9.-]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
+      .replace(/\s+/g, ' ');
   }
 
   function buildTemuanFileName(task, item = {}) {
     const parts = [
-      normalizeFilePart(task?.url || ''),
       normalizeFilePart(item?.type || ''),
       normalizeFilePart(item?.bankName || ''),
-      normalizeFilePart(item?.identifierNo || '')
+      normalizeFilePart(String(task?.title || '').trim() || String(task?.url || '').replace(/^https?:\/\//i, '').split(/[/?#]/)[0])
     ].filter(Boolean);
 
-    return parts.join('-');
+    return parts.join(' - ');
   }
 
   function updateTemuanTitleSitePreview() {
@@ -568,7 +565,11 @@ document.addEventListener('DOMContentLoaded', async function () {
   function getEffectiveTemuanTask() {
     const replacement = document.getElementById('temuanTaskStatus').value === 'false'
       ? document.getElementById('temuanReplacementUrl').value.trim() : '';
-    return { ...currentTemuanTask, url: replacement || currentTemuanTask?.url || '' };
+    return {
+      ...currentTemuanTask,
+      url: replacement || currentTemuanTask?.url || '',
+      title: replacement ? document.getElementById('temuanReplacementTitle').value.trim() : currentTemuanTask?.title || ''
+    };
   }
 
   function updateReplacementFields() {
@@ -1346,6 +1347,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   document.getElementById('saveTemuanBtn').addEventListener('click', saveTemuanEntries);
   document.getElementById('temuanTaskStatus').addEventListener('change', updateReplacementFields);
   document.getElementById('temuanReplacementUrl').addEventListener('input', updateReplacementFields);
+  document.getElementById('temuanReplacementTitle').addEventListener('input', updateReplacementFields);
   for (const id of ['temuanType', 'temuanBankName', 'temuanIdentifierNo']) {
     document.getElementById(id).addEventListener(id === 'temuanType' ? 'change' : 'input', scheduleDuplicateCheck);
   }

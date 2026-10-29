@@ -173,21 +173,18 @@ function parseSpreadsheetDate(value) {
 function normalizeTitleSitePart(value) {
   return String(value ?? '')
     .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-zA-Z0-9.-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
+    .replace(/\s+/g, ' ');
 }
 
-function buildTemuanTitleSite(judolSite, type, bankName, identifierNo) {
+function buildTemuanTitleSite(judolSite, type, bankName, identifierNo, siteTitle = '') {
   return [
-    normalizeTitleSitePart(judolSite),
     normalizeTitleSitePart(type),
     normalizeTitleSitePart(bankName),
-    normalizeTitleSitePart(identifierNo)
+    normalizeTitleSitePart(String(siteTitle || '').trim() || String(judolSite || '').replace(/^https?:\/\//i, '').split(/[/?#]/)[0])
   ]
     .filter(Boolean)
-    .join('-');
+    .join(' - ');
 }
 
 function escapeRegex(value = '') {
