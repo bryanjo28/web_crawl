@@ -537,7 +537,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   function buildTemuanFileName(task, item = {}) {
     const parts = [
-      normalizeFilePart(item?.type || ''),
+      normalizeFilePart(item?.identifierNo || ''),
       normalizeFilePart(item?.bankName || ''),
       normalizeFilePart(String(task?.title || '').trim() || String(task?.url || '').replace(/^https?:\/\//i, '').split(/[/?#]/)[0])
     ].filter(Boolean);

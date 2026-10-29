@@ -60,10 +60,10 @@ test('filename preview stays empty until all finding fields are complete', () =>
   assert.equal(element('temuanTitleSite').value, '');
   element('temuanIdentifierNo').value = '00123';
   context.updateTemuanTitleSitePreview();
-  assert.equal(element('temuanTitleSite').value, 'rekening - Bank A - b.example');
+  assert.equal(element('temuanTitleSite').value, '00123 - Bank A - b.example');
   element('temuanReplacementTitle').value = 'Web Baru';
   context.updateTemuanTitleSitePreview();
-  assert.equal(element('temuanTitleSite').value, 'rekening - Bank A - Web Baru');
+  assert.equal(element('temuanTitleSite').value, '00123 - Bank A - Web Baru');
 });
 
 test('reopening popup shows original and stored replacement without allowing overwrite', () => {

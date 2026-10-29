@@ -179,7 +179,7 @@ function normalizeTitleSitePart(value) {
 
 function buildTemuanTitleSite(judolSite, type, bankName, identifierNo, siteTitle = '') {
   return [
-    normalizeTitleSitePart(type),
+    normalizeTitleSitePart(identifierNo),
     normalizeTitleSitePart(bankName),
     normalizeTitleSitePart(String(siteTitle || '').trim() || String(judolSite || '').replace(/^https?:\/\//i, '').split(/[/?#]/)[0])
   ]
