@@ -11,6 +11,7 @@ const taskSchema = new mongoose.Schema({
   statusSite: Boolean,
   replacementSiteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Site' },
   replacementUrl: String,
+  replacementTitle: String,
   pic: String,
   lastUpdatedBy: String,
   lastUpdateDate: Date

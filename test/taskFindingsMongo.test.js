@@ -36,7 +36,7 @@ test('MongoDB replacement persistence and recovery', { skip: !process.env.TASK_I
       assert.equal((await TaskModel.findById(originalTask._id)).statusSite, true);
     });
     await t.test('saves B separately and preserves A and task URL', async () => {
-      const result = await save({ statusSite: false, replacementUrl: 'https://replacement.example', items: [item] });
+      const result = await save({ statusSite: false, replacementUrl: 'https://replacement.example', replacementTitle: 'Replacement Title', items: [item] });
       assert.equal(result.createdCount, 1);
       const task = await TaskModel.findById(originalTask._id).lean();
       const source = await SiteModel.findById(originalSite._id).lean();
@@ -49,6 +49,10 @@ test('MongoDB replacement persistence and recovery', { skip: !process.env.TASK_I
       assert.equal(String(source.replacedBySiteId), String(replacement._id));
       assert.equal(String(replacement.replacesSiteId), String(source._id));
       assert.equal(replacement.username, 'task-user');
+      assert.equal(replacement.title, 'Replacement Title');
+      assert.equal(task.title, 'Original');
+      assert.equal(task.replacementTitle, 'Replacement Title');
+      assert.equal(finding.titleSite, 'Replacement Title');
       assert.equal(replacement.status, true);
       assert.ok(replacement.lastCrawl);
       assert.ok(replacement.tanggalTemuan);
@@ -68,7 +72,7 @@ test('MongoDB replacement persistence and recovery', { skip: !process.env.TASK_I
     });
     await t.test('existing replacement URLs are rejected without overwriting', async () => {
       const task = await TaskModel.create({ url: 'https://another.example', statusSite: true });
-      await assert.rejects(save({ statusSite: false, replacementUrl: 'https://replacement.example', items: [item] }, { _id: task._id }), /sudah terdaftar/);
+      await assert.rejects(save({ statusSite: false, replacementUrl: 'https://replacement.example', replacementTitle: 'Other Title', items: [item] }, { _id: task._id }), /sudah terdaftar/);
       assert.equal(await SiteModel.countDocuments(), 2);
     });
   } finally {

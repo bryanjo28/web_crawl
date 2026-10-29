@@ -7,6 +7,15 @@ const item = { type: 'rekening', bankName: 'Bank A', identifierNo: '00123' };
 const now = new Date('2026-10-29T09:00:00Z');
 const plan = (body, original = task) => planTaskFindings(original, body, 'User A', now, (...parts) => parts.join('-'));
 
+test('new replacement uses its own title for the new site and findings without changing original title', () => {
+  const result = plan({ statusSite: false, replacementUrl: 'https://b.example', replacementTitle: 'Site B', items: [item] });
+  assert.equal(result.newSite.title, 'Site B');
+  assert.equal(result.docs[0].titleSite, 'Site B');
+  assert.equal(result.taskUpdate.title, undefined);
+  assert.equal(task.title, 'Site A');
+  assert.throws(() => plan({ statusSite: false, replacementUrl: 'b.example', replacementTitle: ' ', items: [] }), /Title/);
+});
+
 test('replacement preserves original task URL and copies credentials to a separate active site', () => {
   const result = plan({ statusSite: false, replacementUrl: 'https://b.example', items: [item] });
   assert.equal(result.taskUpdate.url, undefined);

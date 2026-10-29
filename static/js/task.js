@@ -224,6 +224,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                 <div class="col-md-6" id="temuanReplacementGroup" hidden>
                   <label for="temuanReplacementUrl" class="form-label">Judol Site Pengganti</label>
                   <input type="text" id="temuanReplacementUrl" class="form-control" placeholder="https://domain-b.com">
+                  <label for="temuanReplacementTitle" class="form-label mt-2">Title Pengganti</label>
+                  <input type="text" id="temuanReplacementTitle" class="form-control" placeholder="Title domain baru">
                   <div class="form-text">Temuan dan nama file akan memakai domain pengganti jika diisi.</div>
                 </div>
               </div>
@@ -932,6 +934,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('temuanTaskStatus').disabled = Boolean(task.replacementSiteId);
     document.getElementById('temuanReplacementUrl').value = task.replacementUrl || '';
     document.getElementById('temuanReplacementUrl').readOnly = Boolean(task.replacementSiteId);
+    document.getElementById('temuanReplacementTitle').value = task.replacementTitle || (task.replacementSiteId ? task.title || '' : '');
+    document.getElementById('temuanReplacementTitle').readOnly = Boolean(task.replacementSiteId);
     document.getElementById('temuanModalAlert').hidden = true;
     document.getElementById('temuanDuplicateAlert').hidden = true;
     duplicateCheckVersion++;
@@ -978,6 +982,12 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
 
   async function saveTemuanEntries() {
+    if (!currentTemuanTask?.replacementSiteId && document.getElementById('temuanTaskStatus').value === 'false' &&
+      document.getElementById('temuanReplacementUrl').value.trim() &&
+      !document.getElementById('temuanReplacementTitle').value.trim()) {
+      showTemuanError('Title domain pengganti wajib diisi.');
+      return;
+    }
     if (!currentTemuanTask) {
       showAlert('error', 'Task tidak ditemukan.');
       return;
@@ -1000,6 +1010,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         body: JSON.stringify({
           items: temuanQueue,
           statusSite: document.getElementById('temuanTaskStatus').value === 'true',
+          replacementTitle: document.getElementById('temuanReplacementTitle').value.trim(),
           replacementUrl: document.getElementById('temuanTaskStatus').value === 'false'
             ? document.getElementById('temuanReplacementUrl').value.trim() : ''
         })
