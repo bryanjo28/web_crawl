@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   const successMessage = document.getElementById('successMessage');
   const errorMessage = document.getElementById('errorMessage');
   const isAdmin = currentUser.role === 'admin';
+  const taskListStateKey = `task-list:${currentUser.id || currentUser._id || currentUser.name}:${currentUser.role}`;
 
   let allTasks = [];
   let picOptions = [];
@@ -653,9 +654,32 @@ document.addEventListener('DOMContentLoaded', async function () {
     return totalPages;
   }
 
+  function saveTaskListState() {
+    try {
+      window.sessionStorage.setItem(taskListStateKey, JSON.stringify({
+        savedOn: getTodayDateInputValue(), currentPage,
+        taskDate: taskDateFilter.value, pic: picFilter.value, site: taskSiteFilter.value,
+        sortDirection: taskDateSortDirection
+      }));
+    } catch { /* The table remains usable when browser storage is unavailable. */ }
+  }
+
+  function restoreTaskListState() {
+    try {
+      const state = JSON.parse(window.sessionStorage.getItem(taskListStateKey));
+      if (!state || state.savedOn !== getTodayDateInputValue()) return;
+      currentPage = Number.isSafeInteger(state.currentPage) && state.currentPage > 0 ? state.currentPage : 1;
+      if (typeof state.taskDate === 'string' && (!state.taskDate || /^\d{4}-\d{2}-\d{2}$/.test(state.taskDate))) taskDateFilter.value = state.taskDate;
+      if (typeof state.pic === 'string') picFilter.value = state.pic;
+      if (typeof state.site === 'string') taskSiteFilter.value = state.site;
+      taskDateSortDirection = state.sortDirection === 'asc' ? 'asc' : 'desc';
+    } catch { /* Ignore invalid or unavailable browser storage. */ }
+  }
+
   function renderTasks() {
     const tasks = getFilteredTasks();
     const totalPages = ensurePageWithinRange(tasks.length);
+    saveTaskListState();
     const startIndex = (currentPage - 1) * PAGE_SIZE;
     const pagedTasks = tasks.slice(startIndex, startIndex + PAGE_SIZE);
 
@@ -1395,6 +1419,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     taskDateFilter.value = getTodayDateInputValue();
   }
 
+  restoreTaskListState();
   updateTaskSortHeader();
 
   try {
