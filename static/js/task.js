@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   const taskDateFilter = document.getElementById('taskDateFilter');
   const picFilter = document.getElementById('picFilter');
+  const taskSiteFilter = document.getElementById('taskSiteFilter');
   const searchButton = document.getElementById('searchButton');
   const addButton = document.getElementById('openAddTaskModal');
   const uploadButton = document.getElementById('uploadTaskData');
@@ -30,11 +31,17 @@ document.addEventListener('DOMContentLoaded', async function () {
   let currentPage = 1;
   let deleteTarget = null;
   let availableDistributionCount = 0;
+  let distributionAvailabilityDate = '';
+  let distributionAvailabilityVersion = 0;
+  let distributionAdding = false;
+  let distributionSaving = false;
   let distributionQueue = [];
   let currentTemuanTask = null;
   let temuanQueue = [];
   let parsedUploadRows = [];
   let taskDateSortDirection = 'desc';
+  let duplicateCheckVersion = 0;
+  let duplicateCheckTimer;
 
   injectModals();
 
@@ -131,6 +138,7 @@ document.addEventListener('DOMContentLoaded', async function () {
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+              <div id="distributionAlert" class="alert alert-danger" role="alert" hidden></div>
               <div class="row g-3 align-items-end">
                 <div class="col-md-4">
                   <label for="distributeTaskDate" class="form-label">Tasklist Date</label>
@@ -155,8 +163,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
               <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
                 <div class="small text-muted">
-                  Data tersedia: <span id="distributionAvailableCount">0</span> |
-                  Sisa setelah antrian: <span id="distributionRemainingCount">0</span>
+                  Tersedia untuk tanggal pilihan: <span id="distributionAvailableCount">-</span> |
+                  Sisa setelah antrean tanggal ini: <span id="distributionRemainingCount">-</span>
                 </div>
                 <button type="button" class="btn btn-sm btn-warning" id="addDistributionRowBtn">Add</button>
               </div>
@@ -192,6 +200,8 @@ document.addEventListener('DOMContentLoaded', async function () {
             </div>
             <div class="modal-body">
               <input type="hidden" id="temuanTaskId" />
+              <div id="temuanModalAlert" class="alert alert-danger" role="alert" hidden></div>
+              <div id="temuanDuplicateAlert" class="alert alert-warning" role="status" hidden></div>
               <div class="row g-3 mb-3">
                 <div class="col-md-6">
                   <label class="form-label">Judol Site</label>
@@ -200,6 +210,20 @@ document.addEventListener('DOMContentLoaded', async function () {
                 <div class="col-md-6">
                   <label class="form-label">Tasklist Date</label>
                   <input type="text" class="form-control" id="temuanTaskDateDisplay" readonly />
+                </div>
+              </div>
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <label for="temuanTaskStatus" class="form-label">Status Domain Asal</label>
+                  <select id="temuanTaskStatus" class="form-select">
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+                <div class="col-md-6" id="temuanReplacementGroup" hidden>
+                  <label for="temuanReplacementUrl" class="form-label">Judol Site Pengganti</label>
+                  <input type="text" id="temuanReplacementUrl" class="form-control" placeholder="https://domain-b.com">
+                  <div class="form-text">Temuan dan nama file akan memakai domain pengganti jika diisi.</div>
                 </div>
               </div>
               <div class="row g-3 align-items-end">
@@ -224,8 +248,8 @@ document.addEventListener('DOMContentLoaded', async function () {
               </div>
               <div class="row g-3 mt-1">
                 <div class="col-12">
-                  <label for="temuanTitleSite" class="form-label">Nama file</label>
-                  <input type="text" class="form-control" id="temuanTitleSite" readonly />
+                  <label for="temuanTitleSite" class="form-label">Nama file (otomatis)</label>
+                  <input type="text" class="form-control" id="temuanTitleSite" placeholder="Terisi setelah jenis, nama bank, dan nomor lengkap" readonly />
                 </div>
               </div>
               <div class="d-flex justify-content-end mt-3 mb-2">
@@ -523,11 +547,74 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   function updateTemuanTitleSitePreview() {
     const titleField = document.getElementById('temuanTitleSite');
-    titleField.value = buildTemuanFileName(currentTemuanTask, {
+    const item = {
       type: document.getElementById('temuanType').value.trim(),
       bankName: document.getElementById('temuanBankName').value.trim(),
       identifierNo: document.getElementById('temuanIdentifierNo').value.trim()
-    });
+    };
+    titleField.value = item.type && item.bankName && item.identifierNo
+      ? buildTemuanFileName(getEffectiveTemuanTask(), item) : '';
+  }
+
+  function showTemuanError(message) {
+    const alert = document.getElementById('temuanModalAlert');
+    alert.textContent = message;
+    alert.hidden = false;
+  }
+
+  function getEffectiveTemuanTask() {
+    const replacement = document.getElementById('temuanTaskStatus').value === 'false'
+      ? document.getElementById('temuanReplacementUrl').value.trim() : '';
+    return { ...currentTemuanTask, url: replacement || currentTemuanTask?.url || '' };
+  }
+
+  function updateReplacementFields() {
+    document.getElementById('temuanReplacementGroup').hidden = document.getElementById('temuanTaskStatus').value !== 'false';
+    const effectiveTask = getEffectiveTemuanTask();
+    temuanQueue.forEach(item => { item.fileName = buildTemuanFileName(effectiveTask, item); });
+    renderTemuanQueue();
+    updateTemuanTitleSitePreview();
+  }
+
+  function getDuplicateKey(item) {
+    return JSON.stringify([
+      String(item.type || '').trim().toLowerCase(),
+      String(item.bankName || '').trim().replace(/\s+/g, ' ').toLowerCase(),
+      String(item.identifierNo || '').trim()
+    ]);
+  }
+
+  async function checkTemuanDuplicate(item, alreadyAdded = false) {
+    const version = ++duplicateCheckVersion;
+    const alert = document.getElementById('temuanDuplicateAlert');
+    if (!item.type || !item.bankName || !item.identifierNo) { alert.hidden = true; return; }
+    const repeated = temuanQueue.filter(entry => getDuplicateKey(entry) === getDuplicateKey(item)).length > (alreadyAdded ? 1 : 0);
+    const notes = repeated ? ['Kombinasi jenis, nama bank, dan nomor sudah ada di antrean ini.'] : [];
+    alert.textContent = notes.join(' ');
+    alert.hidden = !notes.length;
+    try {
+      const query = new URLSearchParams(item);
+      const response = await window.AppAuth.authFetch(`${API}/temuan/duplicates?${query}`);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Gagal mengecek duplikat.');
+      if (version !== duplicateCheckVersion) return;
+      if (result.exists) notes.push(`Data ini pernah dicatat${result.domains.length ? ' pada ' + result.domains.join(', ') : ''}.`);
+    } catch (error) {
+      if (version !== duplicateCheckVersion) return;
+      notes.push('Pengecekan riwayat duplikat belum berhasil.');
+    }
+    alert.textContent = notes.length ? notes.join(' ') + ' Data tetap boleh disimpan.' : '';
+    alert.hidden = !notes.length;
+  }
+
+  function scheduleDuplicateCheck() {
+    duplicateCheckVersion++;
+    clearTimeout(duplicateCheckTimer);
+    duplicateCheckTimer = window.setTimeout(() => checkTemuanDuplicate({
+      type: document.getElementById('temuanType').value.trim(),
+      bankName: document.getElementById('temuanBankName').value.trim(),
+      identifierNo: document.getElementById('temuanIdentifierNo').value.trim()
+    }), 350);
   }
 
   function getFilteredTasks() {
@@ -537,7 +624,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     return allTasks.filter((task) => {
       const matchesTaskDate = !taskDate || toDateInputValue(task.taskDate) === taskDate;
       const matchesPic = !pic || (task.pic || '').toLowerCase().includes(pic);
-      return matchesTaskDate && matchesPic;
+      const keyword = taskSiteFilter.value.trim().toLowerCase();
+      const matchesSite = !keyword || [task.url, task.replacementUrl].some(value => String(value || '').toLowerCase().includes(keyword));
+      return matchesTaskDate && matchesPic && matchesSite;
     }).sort((a, b) => {
       const timeA = a?.taskDate ? new Date(a.taskDate).getTime() : 0;
       const timeB = b?.taskDate ? new Date(b.taskDate).getTime() : 0;
@@ -581,14 +670,14 @@ document.addEventListener('DOMContentLoaded', async function () {
           <td>${startIndex + index + 1}</td>
           <td>${formatShortDate(task.taskDate)}</td>
           <td>${escapeHtml(task.pic || '-')}</td>
-          <td>${escapeHtml(task.url || '-')}</td>
+          <td>${escapeHtml(task.url || '-')}${task.replacementUrl ? `<div class="small text-muted">Pengganti: ${escapeHtml(task.replacementUrl)}</div>` : ''}</td>
           <td>${escapeHtml(task.title || '-')}</td>
           <td>${escapeHtml(task.username || '-')}</td>
           <td>${escapeHtml(task.password || '-')}</td>
           <td>${task.flagJudol ? 'Y' : 'N'}</td>
           <td>${task.statusSite ? 'Active' : 'Inactive'}</td>
           <td>${escapeHtml(task.lastUpdatedBy || '-')}</td>
-          <td>${formatDate(task.lastUpdateDate)}</td>
+          <td>${formatShortDate(task.tanggalTemuan)}</td>
           <td>
             <button class="btn btn-sm btn-warning me-1 edit-task-btn" data-id="${task._id}">
               <i class="fa fa-pencil"></i>
@@ -622,6 +711,8 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
 
   function resetForm() {
+    document.getElementById('taskStatusSite').disabled = false;
+    document.getElementById('taskUrl').readOnly = false;
     document.getElementById('taskModalTitle').textContent = 'Add Task';
     document.getElementById('taskId').value = '';
     document.getElementById('taskDate').value = '';
@@ -740,6 +831,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('taskPassword').value = task.password || '';
     document.getElementById('taskFlagJudol').value = String(Boolean(task.flagJudol));
     document.getElementById('taskStatusSite').value = String(Boolean(task.statusSite));
+    document.getElementById('taskStatusSite').disabled = Boolean(task.replacementSiteId);
+    document.getElementById('taskUrl').readOnly = Boolean(task.replacementSiteId);
     taskModal.show();
   }
 
@@ -811,29 +904,38 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('temuanTaskId').value = task._id;
     document.getElementById('temuanTaskJudolSite').value = task.url || '';
     document.getElementById('temuanTaskDateDisplay').value = formatShortDate(task.taskDate);
+    document.getElementById('temuanTaskStatus').value = String(task.statusSite !== false);
+    document.getElementById('temuanTaskStatus').disabled = Boolean(task.replacementSiteId);
+    document.getElementById('temuanReplacementUrl').value = task.replacementUrl || '';
+    document.getElementById('temuanReplacementUrl').readOnly = Boolean(task.replacementSiteId);
+    document.getElementById('temuanModalAlert').hidden = true;
+    document.getElementById('temuanDuplicateAlert').hidden = true;
+    duplicateCheckVersion++;
+    updateReplacementFields();
+    clearTimeout(duplicateCheckTimer);
     resetTemuanFormFields();
     updateTemuanTitleSitePreview();
     renderTemuanQueue();
     temuanModal.show();
   }
 
-  function addTemuanRow() {
+  async function addTemuanRow() {
     const type = document.getElementById('temuanType').value.trim();
     const bankName = document.getElementById('temuanBankName').value.trim();
     const identifierNo = document.getElementById('temuanIdentifierNo').value.trim();
 
     if (!type) {
-      showAlert('error', 'Jenis wajib dipilih.');
+      showTemuanError('Jenis wajib dipilih.');
       return;
     }
 
     if (!bankName) {
-      showAlert('error', 'Nama bank wajib diisi.');
+      showTemuanError('Nama bank wajib diisi.');
       return;
     }
 
     if (!identifierNo) {
-      showAlert('error', 'Nomor wajib diisi.');
+      showTemuanError('Nomor wajib diisi.');
       return;
     }
 
@@ -841,10 +943,14 @@ document.addEventListener('DOMContentLoaded', async function () {
       type,
       bankName,
       identifierNo,
-      fileName: buildTemuanFileName(currentTemuanTask, { type, bankName, identifierNo })
+      fileName: buildTemuanFileName(getEffectiveTemuanTask(), { type, bankName, identifierNo })
     });
+    document.getElementById('temuanModalAlert').hidden = true;
+    const addedItem = { type, bankName, identifierNo };
+    clearTimeout(duplicateCheckTimer);
     resetTemuanFormFields();
     renderTemuanQueue();
+    await checkTemuanDuplicate(addedItem, true);
   }
 
   async function saveTemuanEntries() {
@@ -853,11 +959,14 @@ document.addEventListener('DOMContentLoaded', async function () {
       return;
     }
 
-    if (!temuanQueue.length) {
-      showAlert('error', 'Tambahkan minimal satu data temuan.');
+    if (!temuanQueue.length && document.getElementById('temuanTaskStatus').value === 'true') {
+      showTemuanError('Tambahkan minimal satu data temuan.');
       return;
     }
 
+    const saveButton = document.getElementById('saveTemuanBtn');
+    let saved = false;
+    saveButton.disabled = true;
     try {
       const response = await window.AppAuth.authFetch(`${API}/${currentTemuanTask._id}/temuan`, {
         method: 'POST',
@@ -865,7 +974,10 @@ document.addEventListener('DOMContentLoaded', async function () {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          items: temuanQueue
+          items: temuanQueue,
+          statusSite: document.getElementById('temuanTaskStatus').value === 'true',
+          replacementUrl: document.getElementById('temuanTaskStatus').value === 'false'
+            ? document.getElementById('temuanReplacementUrl').value.trim() : ''
         })
       });
 
@@ -874,12 +986,16 @@ document.addEventListener('DOMContentLoaded', async function () {
         throw new Error(result.message || 'Gagal menyimpan data temuan.');
       }
 
+      saved = true;
       temuanModal.hide();
       resetTemuanModal();
       await loadTasks();
       showAlert('success', result.message || 'Data temuan berhasil disimpan.');
     } catch (error) {
-      showAlert('error', error.message);
+      if (saved) showAlert('error', 'Data sudah tersimpan, tetapi daftar task gagal dimuat. Muat ulang halaman.');
+      else showTemuanError(error.message);
+    } finally {
+      saveButton.disabled = false;
     }
   }
 
@@ -896,22 +1012,44 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
 
   async function loadDistributionAvailability() {
-    const response = await window.AppAuth.authFetch(`${API}/distribution/availability`);
+    const taskDate = document.getElementById('distributeTaskDate').value;
+    const version = ++distributionAvailabilityVersion;
+    distributionAvailabilityDate = '';
+    updateDistributionSummary();
+    if (!taskDate) return false;
+    const response = await window.AppAuth.authFetch(`${API}/distribution/availability?taskDate=${encodeURIComponent(taskDate)}`);
     const result = await response.json();
+
+    if (version !== distributionAvailabilityVersion || document.getElementById('distributeTaskDate').value !== taskDate) return false;
 
     if (!response.ok) {
       throw new Error(result.message || 'Gagal mengambil ketersediaan data distribute.');
     }
 
     availableDistributionCount = Number(result.availableCount) || 0;
+    distributionAvailabilityDate = taskDate;
     updateDistributionSummary();
+    return true;
   }
 
   function updateDistributionSummary() {
-    const queuedCount = distributionQueue.reduce((sum, item) => sum + item.quantity, 0);
+    const date = document.getElementById('distributeTaskDate').value;
+    const ready = Boolean(date && distributionAvailabilityDate === date);
+    const queuedCount = distributionQueue.filter(item => item.taskDate === date).reduce((sum, item) => sum + item.quantity, 0);
     const remaining = Math.max(0, availableDistributionCount - queuedCount);
-    document.getElementById('distributionAvailableCount').textContent = String(availableDistributionCount);
-    document.getElementById('distributionRemainingCount').textContent = String(remaining);
+    document.getElementById('distributionAvailableCount').textContent = ready ? String(availableDistributionCount) : '-';
+    document.getElementById('distributionRemainingCount').textContent = ready ? String(remaining) : '-';
+    document.getElementById('addDistributionRowBtn').disabled = !ready || distributionAdding || distributionSaving;
+    document.getElementById('saveDistributionBtn').disabled = distributionAdding || distributionSaving || !distributionQueue.length;
+    for (const id of ['distributeTaskDate', 'distributePicSelect', 'distributeQuantity']) {
+      document.getElementById(id).disabled = distributionSaving;
+    }
+  }
+
+  function showDistributionError(message) {
+    const alert = document.getElementById('distributionAlert');
+    alert.textContent = message;
+    alert.hidden = false;
   }
 
   function renderDistributionQueue() {
@@ -939,6 +1077,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     document.querySelectorAll('.remove-distribution-row').forEach((button) => {
       button.addEventListener('click', () => {
+        if (distributionAdding || distributionSaving) return;
         distributionQueue.splice(Number(button.dataset.index), 1);
         renderDistributionQueue();
         updateDistributionSummary();
@@ -947,63 +1086,78 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
 
   function resetDistributionFormFields() {
-    document.getElementById('distributeTaskDate').value = '';
     document.getElementById('distributeQuantity').value = '';
     renderDistributePicOptions();
   }
 
   function resetDistributionModal() {
     distributionQueue = [];
+    distributionAvailabilityVersion++;
+    distributionAvailabilityDate = '';
+    document.getElementById('distributeTaskDate').value = '';
+    document.getElementById('distributionAlert').hidden = true;
     resetDistributionFormFields();
     renderDistributionQueue();
     updateDistributionSummary();
   }
 
-  function addDistributionRow() {
+  async function addDistributionRow() {
+    if (distributionAdding || distributionSaving) return;
     const taskDate = document.getElementById('distributeTaskDate').value;
     const pic = String(document.getElementById('distributePicSelect').value || '').trim();
     const quantity = Number(document.getElementById('distributeQuantity').value);
-    const remaining = availableDistributionCount - distributionQueue.reduce((sum, item) => sum + item.quantity, 0);
 
     if (!taskDate) {
-      showAlert('error', 'Tasklist Date distribute wajib diisi.');
+      showDistributionError('Tasklist Date distribute wajib diisi.');
       return;
     }
 
     if (!pic) {
-      showAlert('error', 'PIC distribute wajib diisi.');
+      showDistributionError('PIC distribute wajib diisi.');
       return;
     }
 
     if (!distributeUserOptions.includes(pic)) {
-      showAlert('error', 'PIC harus berasal dari user aktif.');
+      showDistributionError('PIC harus berasal dari user aktif.');
       return;
     }
 
     if (!Number.isInteger(quantity) || quantity <= 0) {
-      showAlert('error', 'Jumlah task harus angka bulat lebih dari 0.');
+      showDistributionError('Jumlah task harus angka bulat lebih dari 0.');
       return;
     }
 
-    if (quantity > remaining) {
-      showAlert('error', `Jumlah task melebihi sisa data tersedia. Sisa saat ini ${remaining}.`);
-      return;
-    }
-
-    distributionQueue.push({ taskDate, pic, quantity });
-    resetDistributionFormFields();
-    renderDistributionQueue();
+    distributionAdding = true;
     updateDistributionSummary();
+    try {
+      if (!await loadDistributionAvailability()) return;
+      const remaining = availableDistributionCount - distributionQueue.filter(item => item.taskDate === taskDate).reduce((sum, item) => sum + item.quantity, 0);
+      if (quantity > remaining) {
+        showDistributionError(`Data untuk tanggal ${taskDate} tidak mencukupi. Sisa setelah antrean: ${Math.max(0, remaining)}, diminta: ${quantity}.`);
+        return;
+      }
+
+      document.getElementById('distributionAlert').hidden = true;
+      distributionQueue.push({ taskDate, pic, quantity });
+      resetDistributionFormFields();
+      renderDistributionQueue();
+      updateDistributionSummary();
+    } catch (error) {
+      showDistributionError(error.message);
+    } finally {
+      distributionAdding = false;
+      updateDistributionSummary();
+    }
   }
 
   async function openDistributeModal() {
+    if (distributionAdding || distributionSaving) return;
     if (!isAdmin) {
       showAlert('error', 'Distribute hanya bisa dilakukan admin.');
       return;
     }
 
     try {
-      await loadDistributionAvailability();
       resetDistributionModal();
       renderDistributePicOptions();
       distributeModal.show();
@@ -1013,11 +1167,17 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
 
   async function saveDistributedTasks() {
+    if (distributionAdding || distributionSaving) return;
     if (!distributionQueue.length) {
-      showAlert('error', 'Tambahkan minimal satu baris distribute.');
+      showDistributionError('Tambahkan minimal satu baris distribute.');
       return;
     }
 
+    const saveButton = document.getElementById('saveDistributionBtn');
+    distributionSaving = true;
+    updateDistributionSummary();
+    saveButton.disabled = true;
+    let saved = false;
     try {
       const response = await window.AppAuth.authFetch(`${API}/distribute`, {
         method: 'POST',
@@ -1034,12 +1194,20 @@ document.addEventListener('DOMContentLoaded', async function () {
         throw new Error(result.message || 'Gagal menyimpan distribusi task.');
       }
 
+      saved = true;
       distributeModal.hide();
       resetDistributionModal();
       await loadTasks();
       showAlert('success', result.message || 'Distribusi task berhasil disimpan.');
     } catch (error) {
-      showAlert('error', error.message);
+      if (saved) showAlert('error', 'Distribusi sudah tersimpan, tetapi daftar task gagal dimuat. Muat ulang halaman.');
+      else {
+        try { await loadDistributionAvailability(); } catch { /* Keep the original save error visible. */ }
+        showDistributionError(error.message);
+      }
+    } finally {
+      distributionSaving = false;
+      updateDistributionSummary();
     }
   }
 
@@ -1118,7 +1286,8 @@ document.addEventListener('DOMContentLoaded', async function () {
       'Flag Judol': task.flagJudol ? 'Y' : 'N',
       Status: task.statusSite ? 'Active' : 'Inactive',
       'Last Update By': task.lastUpdatedBy || '',
-      'Last Update Date': task.lastUpdateDate ? new Date(task.lastUpdateDate) : ''
+      'Last Update Date': task.lastUpdateDate ? new Date(task.lastUpdateDate) : '',
+      'Tanggal Temuan': task.tanggalTemuan ? new Date(task.tanggalTemuan) : ''
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -1133,8 +1302,18 @@ document.addEventListener('DOMContentLoaded', async function () {
   document.getElementById('confirmTaskUploadBtn').addEventListener('click', submitUpload);
   document.getElementById('addDistributionRowBtn').addEventListener('click', addDistributionRow);
   document.getElementById('saveDistributionBtn').addEventListener('click', saveDistributedTasks);
+  document.getElementById('distributeTaskDate').addEventListener('change', async () => {
+    document.getElementById('distributionAlert').hidden = true;
+    try { await loadDistributionAvailability(); }
+    catch (error) { showDistributionError(error.message); }
+  });
   document.getElementById('addTemuanRowBtn').addEventListener('click', addTemuanRow);
   document.getElementById('saveTemuanBtn').addEventListener('click', saveTemuanEntries);
+  document.getElementById('temuanTaskStatus').addEventListener('change', updateReplacementFields);
+  document.getElementById('temuanReplacementUrl').addEventListener('input', updateReplacementFields);
+  for (const id of ['temuanType', 'temuanBankName', 'temuanIdentifierNo']) {
+    document.getElementById(id).addEventListener(id === 'temuanType' ? 'change' : 'input', scheduleDuplicateCheck);
+  }
   document.getElementById('temuanType').addEventListener('change', updateTemuanTitleSitePreview);
   document.getElementById('temuanBankName').addEventListener('input', updateTemuanTitleSitePreview);
   document.getElementById('temuanIdentifierNo').addEventListener('input', updateTemuanTitleSitePreview);
@@ -1175,10 +1354,15 @@ document.addEventListener('DOMContentLoaded', async function () {
     currentPage = 1;
     renderTasks();
   });
+  taskSiteFilter.addEventListener('input', () => {
+    currentPage = 1;
+    renderTasks();
+  });
 
   resetButton.addEventListener('click', () => {
     taskDateFilter.value = isAdmin ? '' : getTodayDateInputValue();
     picFilter.value = '';
+    taskSiteFilter.value = '';
     currentPage = 1;
     renderTasks();
   });

@@ -9,6 +9,12 @@ const siteSchema = new mongoose.Schema({
   status: Boolean,
   assetSite: String,
   lastCrawl: Date,
+  tanggalTemuan: Date,
+  replacesSiteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Site' },
+  replacesUrl: String,
+  replacedBySiteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Site' },
+  replacedByUrl: String,
+  sourceTaskId: { type: mongoose.Schema.Types.ObjectId, ref: 'Task' },
   lastUpdateBy: String,
   lastUpdateDate: Date,
   // Legacy fields retained for backward compatibility with existing documents.

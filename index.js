@@ -7,7 +7,9 @@ const mongoose = require('mongoose');
 const SiteModel = require('./models/Site'); // Sesuai dengan nama file 'Site.js'
 const TaskModel = require('./models/Task');
 const TemuanModel = require('./models/Temuan');
-const { prepareSitesForDistribution } = require('./lib/siteAvailability');
+const { prepareSitesForDistribution, buildAssignedSiteKeys, sitesAvailableOnDate, withDistributionLock } = require('./lib/siteAvailability');
+const { saveTaskFindings } = require('./lib/taskFindings');
+const { attachTaskDiscoveryDates } = require('./lib/taskDates');
 
 const UserModel = require('./models/User')
 
@@ -289,6 +291,13 @@ function buildSitePayload(body = {}, fallbackUser = 'system') {
   const flagJudol = parseBoolean(body.flagJudol, true);
   const status = parseBoolean(body.status, true);
   const lastCrawl = parseSpreadsheetDate(body.lastCrawl ?? body.lastScan);
+  const rawTanggalTemuan = body.tanggalTemuan;
+  const tanggalTemuan = parseSpreadsheetDate(
+    typeof rawTanggalTemuan === 'string'
+      ? rawTanggalTemuan.replace(/^(\d{1,2})-(\d{1,2})-(\d{4})$/, '$1/$2/$3')
+      : rawTanggalTemuan
+  );
+  if (rawTanggalTemuan && !tanggalTemuan) throw new Error('Tanggal temuan tidak valid.');
   const lastUpdateDate = parseSpreadsheetDate(body.lastUpdateDate ?? body.lastUpdate) || new Date();
   const lastUpdateBy =
     !rawLastUpdateBy || rawLastUpdateBy === '-' || rawLastUpdateBy.toLowerCase() === 'n/a'
@@ -303,6 +312,7 @@ function buildSitePayload(body = {}, fallbackUser = 'system') {
     flagJudol,
     status,
     assetSite,
+    ...(rawTanggalTemuan !== undefined ? { tanggalTemuan } : {}),
     lastCrawl,
     lastUpdateBy,
     lastUpdateDate,
@@ -1269,8 +1279,11 @@ app.post('/api/sites/upload', async (req, res) => {
 app.get('/api/tasks', async (req, res) => {
   try {
     await revokeExpiredTasks();
-    const data = await TaskModel.find(buildTaskAccessFilter(req.user)).sort({ lastUpdateDate: -1, taskDate: -1 });
-    res.json(data);
+    const [data, siteDates] = await Promise.all([
+      TaskModel.find(buildTaskAccessFilter(req.user)).sort({ lastUpdateDate: -1, taskDate: -1 }).lean(),
+      SiteModel.find({}, { judolSite: 1, url: 1, tanggalTemuan: 1 }).lean()
+    ]);
+    res.json(attachTaskDiscoveryDates(data, siteDates));
   } catch (err) {
     res.status(500).json({ message: 'Error ambil data task', error: err.message });
   }
@@ -1392,14 +1405,21 @@ app.post('/api/tasks/upload', requireAdmin, async (req, res) => {
 
 app.get('/api/tasks/distribution/availability', requireAdmin, async (req, res) => {
   try {
-    const availableSites = await getAvailableSitesForDistribution();
-    res.json({ availableCount: availableSites.length });
+    const date = normalizeTaskDateValue(req.query.taskDate);
+    if (!date) return res.status(400).json({ message: 'Pilih tanggal distribusi terlebih dahulu.' });
+    const taskDate = getTaskDateKey(date);
+    const [sites, tasks] = await Promise.all([
+      getAvailableSitesForDistribution(), TaskModel.find({}, { url: 1, taskDate: 1 }).lean()
+    ]);
+    const assigned = buildAssignedSiteKeys(tasks, getTaskDateKey);
+    const available = sitesAvailableOnDate(sites, assigned, taskDate);
+    res.json({ taskDate, availableCount: available.length, eligibleCount: sites.length, assignedCount: sites.length - available.length });
   } catch (err) {
     res.status(500).json({ message: 'Gagal mengambil data distribusi.', error: err.message });
   }
 });
 
-app.post('/api/tasks/distribute', requireAdmin, async (req, res) => {
+app.post('/api/tasks/distribute', requireAdmin, async (req, res) => withDistributionLock(async () => {
   try {
     const { items } = req.body;
 
@@ -1449,17 +1469,7 @@ app.post('/api/tasks/distribute', requireAdmin, async (req, res) => {
 
     // One calendar day between assignments: block the same URL on the same
     // task date, but allow it again on another date regardless of PIC/completion.
-    const assignedByDate = new Set();
-
-    existingTasks.forEach((task) => {
-      const normalizedUrl = normalizeJudolSiteValue(task.url);
-      const taskDateKey = getTaskDateKey(task.taskDate);
-
-      if (normalizedUrl && taskDateKey) {
-        assignedByDate.add(`${taskDateKey}::${normalizedUrl}`);
-      }
-
-    });
+    const assignedByDate = buildAssignedSiteKeys(existingTasks, getTaskDateKey);
 
     const docsToInsert = [];
 
@@ -1467,7 +1477,7 @@ app.post('/api/tasks/distribute', requireAdmin, async (req, res) => {
       const taskDateKey = getTaskDateKey(item.taskDate);
       const selectedSites = [];
 
-      for (const site of availableSites) {
+      for (const site of sitesAvailableOnDate(availableSites, assignedByDate, taskDateKey)) {
         if (selectedSites.length >= item.quantity) {
           break;
         }
@@ -1494,6 +1504,7 @@ app.post('/api/tasks/distribute', requireAdmin, async (req, res) => {
       selectedSites.forEach((site) => {
         docsToInsert.push({
           taskDate: item.taskDate,
+          tanggalTemuan: site.tanggalTemuan || null,
           pic: item.pic,
           url: site.judolSite || '',
           title: site.title || '',
@@ -1512,89 +1523,53 @@ app.post('/api/tasks/distribute', requireAdmin, async (req, res) => {
     res.status(201).json({
       message: `${created.length} task berhasil didistribusikan.`,
       createdCount: created.length,
-      remainingCount: Math.max(0, availableSites.length - created.length)
+      remainingByDate: Object.fromEntries(normalizedItems.map(item => {
+        const date = getTaskDateKey(item.taskDate);
+        return [date, sitesAvailableOnDate(availableSites, assignedByDate, date).length];
+      }))
     });
   } catch (err) {
     const statusCode = err instanceof Error ? 400 : 500;
     res.status(statusCode).json({ message: err.message || 'Gagal distribute task.', error: err.message });
   }
+}));
+
+app.get('/api/tasks/temuan/duplicates', async (req, res) => {
+  try {
+    const type = String(req.query.type || '').trim().toLowerCase();
+    const bank = String(req.query.bankName || '').trim().replace(/\s+/g, ' ');
+    const identifierNo = String(req.query.identifierNo || '').trim();
+    if (!['rekening', 'qris', 'va', 'sakuku'].includes(type) || !bank || !identifierNo) {
+      return res.status(400).json({ message: 'Jenis, nama bank, dan nomor wajib diisi.' });
+    }
+    const bankPattern = bank.split(' ').map(escapeRegex).join('\\s+');
+    const matches = await TemuanModel.find({
+      type: { $regex: '^\\s*' + escapeRegex(type) + '\\s*$', $options: 'i' }, identifierNo,
+      bankName: { $regex: '^\\s*' + bankPattern + '\\s*$', $options: 'i' }
+    }, { judolSite: 1, _id: 0 }).limit(5).lean();
+    res.json({ exists: matches.length > 0, domains: [...new Set(matches.map(item => item.judolSite))] });
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal mengecek duplikat.' });
+  }
 });
 
 app.post('/api/tasks/:id/temuan', async (req, res) => {
   const { id } = req.params;
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ message: 'ID task tidak valid.' });
-  }
-
+  if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'ID task tidak valid.' });
   try {
-    const { items } = req.body;
-
-    if (!Array.isArray(items) || !items.length) {
-      return res.status(400).json({ message: 'Minimal satu data temuan wajib diisi.' });
-    }
-
-    const task = await TaskModel.findOne({
-      _id: id,
-      ...buildTaskAccessFilter(req.user)
-    }).lean();
-    if (!task) {
-      return res.status(404).json({ message: 'Data task tidak ditemukan atau tidak bisa diakses.' });
-    }
-
-    const allowedTypes = new Set(['rekening', 'qris', 'va', 'sakuku']);
-    const now = new Date();
-    const updatedBy = req.user?.fullName || req.user?.name || 'system';
-
-    const docs = items.map((item, index) => {
-      const type = String(item?.type || '').trim().toLowerCase();
-      const bankName = String(item?.bankName || '').trim();
-      const identifierNo = String(item?.identifierNo || '').trim();
-
-      if (!allowedTypes.has(type)) {
-        throw new Error(`Jenis pada baris ${index + 1} tidak valid.`);
-      }
-
-      if (!bankName) {
-        throw new Error(`Nama bank pada baris ${index + 1} wajib diisi.`);
-      }
-
-      if (!identifierNo) {
-        throw new Error(`Nomor pada baris ${index + 1} wajib diisi.`);
-      }
-
-      return {
-        judolSite: task.url || '',
-        taskDate: task.taskDate || null,
-        type,
-        bankName,
-        identifierNo,
-        fileName: buildTemuanTitleSite(task.url || '', type, bankName, identifierNo),
-        titleSite: task.title || '',
-        updatedBy,
-        updatedDate: now
-      };
+    const result = await saveTaskFindings({
+      mongoose, TaskModel, SiteModel, TemuanModel,
+      taskFilter: { _id: id, ...buildTaskAccessFilter(req.user) },
+      body: req.body,
+      updatedBy: req.user?.fullName || req.user?.name || 'system',
+      buildFileName: buildTemuanTitleSite
     });
-
-    const created = await TemuanModel.insertMany(docs);
-    await TaskModel.updateOne(
-      { _id: task._id },
-      {
-        $set: {
-          lastUpdatedBy: updatedBy,
-          lastUpdateDate: now
-        }
-      }
-    );
-    await syncSiteLastCrawlFromTask(task, updatedBy, now);
-
     res.status(201).json({
-      message: `${created.length} data temuan berhasil disimpan.`,
-      createdCount: created.length
+      ...result,
+      message: result.createdCount ? result.createdCount + ' data temuan berhasil disimpan.' : 'Status site berhasil disimpan.'
     });
   } catch (err) {
-    const statusCode = err instanceof Error ? 400 : 500;
-    res.status(statusCode).json({ message: err.message || 'Gagal menyimpan data temuan.', error: err.message });
+    res.status(err.statusCode || 400).json({ message: err.message || 'Gagal menyimpan data temuan.' });
   }
 });
 
@@ -1628,6 +1603,15 @@ app.put('/api/tasks/:id', async (req, res) => {
       lastUpdatedBy: lastUpdatedBy || req.user?.fullName || req.user?.name || 'system',
       lastUpdateDate: lastUpdateDate ? new Date(lastUpdateDate) : new Date()
     };
+
+    const currentTask = await TaskModel.findOne({ _id: id, ...buildTaskAccessFilter(req.user) }).lean();
+    if (!currentTask) return res.status(404).json({ message: 'Data task tidak ditemukan atau tidak bisa diakses.' });
+    if (currentTask.replacementSiteId && (
+      (url !== undefined && String(url).trim() !== currentTask.url) ||
+      (statusSite !== undefined && statusSite !== false)
+    )) {
+      return res.status(400).json({ message: 'Task dengan domain pengganti harus mempertahankan URL asal dan status Inactive.' });
+    }
 
     if (taskDate !== undefined) updatePayload.taskDate = taskDate ? new Date(taskDate) : null;
     if (pic !== undefined) updatePayload.pic = String(pic).trim();

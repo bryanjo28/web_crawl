@@ -86,6 +86,10 @@ document.addEventListener('DOMContentLoaded', async function () {
                 </div>
                 -->
                 <div class="col-md-6">
+                  <label for="siteTanggalTemuan" class="form-label">Tanggal Temuan</label>
+                  <input type="date" class="form-control" id="siteTanggalTemuan" />
+                </div>
+                <div class="col-md-6">
                   <label for="siteLastCrawl" class="form-label">Last Crawl</label>
                   <input type="datetime-local" class="form-control" id="siteLastCrawl" />
                 </div>
@@ -128,7 +132,7 @@ document.addEventListener('DOMContentLoaded', async function () {
               <label for="siteUploadFile" class="form-label">File Excel</label>
               <input type="file" class="form-control" id="siteUploadFile" accept=".xlsx,.xls,.csv" />
               <div class="form-text">
-                Header Excel yang didukung: Judol Site, Title, Username, Password, Flag Judol, Status. Kolom opsional: Last Crawl, Last Update By, Last Update Date.
+                Header Excel yang didukung: Judol Site, Title, Username, Password, Flag Judol, Status. Kolom opsional: Tanggal Temuan (DD-MM-YYYY), Last Crawl, Last Update By, Last Update Date.
               </div>
             </div>
             <div class="modal-footer">
@@ -160,6 +164,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                       <th>Flag Judol</th>
                       <th>Status</th>
                       <th>Last Crawl</th>
+                      <th>Tanggal Temuan</th>
                       <th>Last Update By</th>
                       <th>Last Update Date</th>
                     </tr>
@@ -259,6 +264,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       flagJudol: getSpreadsheetValue(row, 'Flag Judol', 'FlagJudol'),
       status: getSpreadsheetValue(row, 'Status'),
       lastCrawl: getSpreadsheetValue(row, 'Last Crawl', 'LastCrawl'),
+      tanggalTemuan: getSpreadsheetValue(row, 'Tanggal Temuan', 'tanggalTemuan'),
       lastUpdateBy: String(getSpreadsheetValue(row, 'Last Update By', 'LastUpdateBy')).trim(),
       lastUpdateDate: getSpreadsheetValue(row, 'Last Update Date', 'LastUpdateDate')
     };
@@ -269,7 +275,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     previewBody.innerHTML = '';
 
     if (!parsedUploadRows.length) {
-      previewBody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Belum ada data upload.</td></tr>';
+      previewBody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">Belum ada data upload.</td></tr>';
       return;
     }
 
@@ -284,6 +290,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         <td>${escapeHtml(row.flagJudol || '-')}</td>
         <td>${escapeHtml(row.status || '-')}</td>
         <td>${escapeHtml(row.lastCrawl || '-')}</td>
+        <td>${escapeHtml(row.tanggalTemuan || '-')}</td>
         <td>${escapeHtml(row.lastUpdateBy || '-')}</td>
         <td>${escapeHtml(row.lastUpdateDate || '-')}</td>
       `;
@@ -405,19 +412,20 @@ document.addEventListener('DOMContentLoaded', async function () {
     tbody.innerHTML = '';
 
     if (!pagedSites.length) {
-      tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Tidak ada data judol site.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">Tidak ada data judol site.</td></tr>';
     } else {
       pagedSites.forEach((site, index) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${startIndex + index + 1}</td>
-          <td>${escapeHtml(site.judolSite || '-')}</td>
+          <td>${escapeHtml(site.judolSite || '-')}${site.replacesUrl ? `<div class="small text-muted">Pengganti dari: ${escapeHtml(site.replacesUrl)}</div>` : ''}${site.replacedByUrl ? `<div class="small text-muted">Diganti oleh: ${escapeHtml(site.replacedByUrl)}</div>` : ''}</td>
           <td>${escapeHtml(site.title || '-')}</td>
           <td>${escapeHtml(site.username || '-')}</td>
           <td>${escapeHtml(site.password || '-')}</td>
           <td>${site.flagJudol ? 'Y' : 'N'}</td>
           <td>${site.status ? 'Active' : 'Inactive'}</td>
           <td>${formatDate(site.lastCrawl)}</td>
+          <td>${site.tanggalTemuan ? escapeHtml(new Date(site.tanggalTemuan).toLocaleDateString('id-ID')) : '-'}</td>
           <td>${formatDate(site.lastUpdateDate)}</td>
           <td>
             <button class="btn btn-sm btn-warning me-1 edit-site-btn" data-id="${site._id}">
@@ -455,6 +463,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('siteFlagJudol').value = 'true';
     document.getElementById('siteStatus').value = 'true';
     document.getElementById('siteLastCrawl').value = '';
+    document.getElementById('siteTanggalTemuan').value = '';
   }
 
   function openEditModal(id) {
@@ -470,6 +479,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('siteFlagJudol').value = String(Boolean(site.flagJudol));
     document.getElementById('siteStatus').value = String(Boolean(site.status));
     document.getElementById('siteLastCrawl').value = toDateTimeLocal(site.lastCrawl);
+    document.getElementById('siteTanggalTemuan').value = site.tanggalTemuan ? toDateTimeLocal(site.tanggalTemuan).slice(0, 10) : '';
     siteModal.show();
   }
 
@@ -503,7 +513,8 @@ document.addEventListener('DOMContentLoaded', async function () {
       password: document.getElementById('sitePassword').value.trim(),
       flagJudol: document.getElementById('siteFlagJudol').value === 'true',
       status: document.getElementById('siteStatus').value === 'true',
-      lastCrawl: document.getElementById('siteLastCrawl').value || null
+      lastCrawl: document.getElementById('siteLastCrawl').value || null,
+      tanggalTemuan: document.getElementById('siteTanggalTemuan').value || null
     };
 
     if (!payload.judolSite) {
@@ -566,6 +577,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       'Flag Judol': site.flagJudol ? 'Y' : 'N',
       'Status': site.status ? 'Active' : 'Inactive',
       'Last Crawl': site.lastCrawl ? new Date(site.lastCrawl) : '',
+      'Tanggal Temuan': site.tanggalTemuan ? new Date(site.tanggalTemuan) : '',
       'Last Update By': site.lastUpdateBy || '',
       'Last Update Date': site.lastUpdateDate ? new Date(site.lastUpdateDate) : ''
     }));

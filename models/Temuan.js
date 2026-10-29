@@ -2,6 +2,9 @@ const mongoose = require('mongoose');
 
 const temuanSchema = new mongoose.Schema({
   judolSite: String,
+  taskId: { type: mongoose.Schema.Types.ObjectId, ref: 'Task' },
+  siteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Site' },
+  originalJudolSite: String,
   taskDate: Date,
   type: String,
   bankName: String,
